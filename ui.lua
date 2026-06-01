@@ -1,0 +1,379 @@
+return function(deps)
+    local imgui = deps.imgui
+    local data = deps.data
+    local state = deps.state
+    local settings = deps.settings
+    local default_settings = deps.default_settings
+    local print_message = deps.print_message
+    local clear_session = deps.clear_session
+    local compute_metrics = deps.compute_metrics
+    local get_area_delay_display = deps.get_area_delay_display
+    local get_dig_delay_display = deps.get_dig_delay_display
+
+    local function apply_font_scale(scale)
+        local clamped = math.max(0.8, math.min(1.6, tonumber(scale) or 1.0))
+        if imgui.SetWindowFontScale then
+            imgui.SetWindowFontScale(clamped)
+        else
+            imgui.PushFont(imgui.GetFont(), imgui.GetFontSize() * clamped)
+        end
+    end
+
+    local function unapply_font_scale()
+        if not imgui.SetWindowFontScale then
+            imgui.PopFont()
+        end
+    end
+
+    local function begin_child_compat(id, size, border, flags)
+        local ok, began = pcall(imgui.BeginChild, id, size, border, flags)
+        if ok then
+            return began
+        end
+
+        ok, began = pcall(imgui.BeginChild, id, size, flags)
+        if ok then
+            return began
+        end
+
+        ok, began = pcall(imgui.BeginChild, id, size)
+        if ok then
+            return began
+        end
+
+        return false
+    end
+
+    local function format_int(number)
+        if number == nil then
+            return '0'
+        end
+
+        local value = tonumber(number)
+        if value == nil then
+            return tostring(number)
+        end
+
+        local minus, int, fraction = tostring(value):match('([-]?)(%d+)([.]?%d*)')
+        if int == nil then
+            return tostring(number)
+        end
+
+        int = int:reverse():gsub('(%d%d%d)', '%1,')
+        return minus .. int:reverse():gsub('^,', '') .. fraction
+    end
+
+    local function render_value_row(label, value, value_color, value_column_x)
+        local function text_unformatted_bold(content, override_color)
+            local text = tostring(content or '')
+            local x, y = imgui.GetCursorScreenPos()
+            local draw_list = imgui.GetWindowDrawList()
+            if draw_list ~= nil and x ~= nil and y ~= nil then
+                local color_src = override_color or data.Colors.text
+                local text_color = imgui.GetColorU32(color_src)
+                pcall(function()
+                    draw_list:AddText({ x + 1, y }, text_color, text)
+                end)
+            end
+            imgui.TextUnformatted(text)
+        end
+
+        imgui.PushStyleColor(ImGuiCol_Text, data.Colors.text)
+        text_unformatted_bold(label, data.Colors.text)
+        imgui.PopStyleColor(1)
+        imgui.SameLine(value_column_x)
+        if value_color ~= nil then
+            imgui.PushStyleColor(ImGuiCol_Text, value_color)
+            text_unformatted_bold(value, value_color)
+            imgui.PopStyleColor(1)
+        else
+            text_unformatted_bold(value)
+        end
+    end
+
+    local function render_card(id, title, width, height, rows)
+        imgui.PushStyleColor(ImGuiCol_ChildBg, data.Colors.panel_bg)
+        imgui.PushStyleColor(ImGuiCol_Border, data.Colors.border)
+        imgui.PushStyleVar(ImGuiStyleVar_WindowPadding, { 10, 8 })
+        imgui.PushStyleVar(ImGuiStyleVar_FramePadding, { 6, 4 })
+        local label_max = 0
+        for _, row in ipairs(rows or {}) do
+            local raw = imgui.CalcTextSize(tostring((row or {}).label or ''))
+            local measured = type(raw) == 'table' and (tonumber(raw[1]) or 0) or (tonumber(raw) or 0)
+            label_max = math.max(label_max, measured)
+        end
+        local value_column_x = math.max(80, math.floor(label_max + 20))
+
+        local began = begin_child_compat(id, { width, height }, true, 0)
+        if began then
+            imgui.TextColored(data.Colors.gold, title)
+            imgui.Separator()
+            for _, row in ipairs(rows) do
+                render_value_row(row.label, row.value, row.color, value_column_x)
+            end
+        end
+        imgui.EndChild()
+
+        imgui.PopStyleVar(2)
+        imgui.PopStyleColor(2)
+    end
+
+    local function get_text_width(text)
+        local raw = imgui.CalcTextSize(tostring(text or ''))
+        if type(raw) == 'table' then
+            return tonumber(raw[1]) or 0
+        end
+
+        return tonumber(raw) or 0
+    end
+
+    local function compute_panel_width(rows, min_width, max_width)
+        local label_max = 0
+        local value_max = 0
+        for _, row in ipairs(rows or {}) do
+            label_max = math.max(label_max, get_text_width(row.label))
+            value_max = math.max(value_max, get_text_width(row.value))
+        end
+
+        local desired = math.floor(label_max + value_max + 48)
+        desired = math.max(tonumber(min_width) or 260, desired)
+        if max_width ~= nil then
+            desired = math.min(desired, tonumber(max_width) or desired)
+        end
+
+        return desired
+    end
+
+    local function render_rewards(metrics, width)
+        imgui.PushStyleColor(ImGuiCol_ChildBg, data.Colors.panel_bg)
+        imgui.PushStyleColor(ImGuiCol_Border, data.Colors.border)
+        imgui.PushStyleVar(ImGuiStyleVar_WindowPadding, { 10, 8 })
+        imgui.PushStyleVar(ImGuiStyleVar_ItemSpacing, { 6, 4 })
+
+        local rewards_width = math.max(260, tonumber(width) or 260)
+        local began = begin_child_compat('##golddigger_rewards', { rewards_width, 220 }, true, 0)
+        if began then
+            imgui.TextColored(data.Colors.gold, 'Rewards')
+            imgui.Separator()
+
+            if #metrics.reward_rows == 0 then
+                imgui.TextColored(data.Colors.text_dim, 'No digs recorded yet.')
+            else
+                for _, row in ipairs(metrics.reward_rows) do
+                    local label = ('%s x%s'):format(row.name, format_int(row.count))
+                    local x, y = imgui.GetCursorScreenPos()
+                    local draw_list = imgui.GetWindowDrawList()
+                    if draw_list ~= nil and x ~= nil and y ~= nil then
+                        local text_color = imgui.GetColorU32(data.Colors.text)
+                        pcall(function()
+                            draw_list:AddText({ x + 1, y }, text_color, label)
+                        end)
+                    end
+                    imgui.TextUnformatted(label)
+                end
+            end
+        end
+        imgui.EndChild()
+
+        imgui.PopStyleVar(2)
+        imgui.PopStyleColor(2)
+    end
+
+    local function render_config_window()
+        if not state.config_visible[1] then
+            return
+        end
+
+        imgui.PushStyleColor(ImGuiCol_WindowBg, data.Colors.window_bg)
+        imgui.PushStyleColor(ImGuiCol_Border, data.Colors.border)
+        imgui.PushStyleColor(ImGuiCol_TitleBg, data.Colors.title_bg)
+        imgui.PushStyleColor(ImGuiCol_TitleBgActive, data.Colors.title_bg_active)
+        imgui.PushStyleVar(ImGuiStyleVar_WindowRounding, 6.0)
+        imgui.PushStyleVar(ImGuiStyleVar_WindowBorderSize, 2.0)
+        imgui.PushStyleVar(ImGuiStyleVar_Alpha, state.settings.window_alpha)
+
+        local began = imgui.Begin('Golddigger Config', state.config_visible, ImGuiWindowFlags_AlwaysAutoResize or 0)
+        if began then
+            apply_font_scale(state.settings.font_scale)
+
+            local font_scale = { tonumber(state.settings.font_scale) or default_settings.font_scale }
+            if imgui.SliderFloat('Font Size', font_scale, 0.8, 1.6, '%.2f') then
+                state.settings.font_scale = math.max(0.8, math.min(1.6, font_scale[1]))
+            end
+
+            local window_alpha = { tonumber(state.settings.window_alpha) or default_settings.window_alpha }
+            if imgui.SliderFloat('Window Transparency', window_alpha, 0.3, 1.0, '%.2f') then
+                state.settings.window_alpha = math.max(0.3, math.min(1.0, window_alpha[1]))
+            end
+
+            local dig_skill = { tonumber(state.settings.dig_skill) or 0 }
+            if imgui.InputFloat('Digging Skill', dig_skill, 0.1, 0.5, '%.1f') then
+                state.settings.dig_skill = math.max(0, dig_skill[1])
+            end
+
+            local rankup_volume = { tonumber(state.settings.rankup_sound_volume) or default_settings.rankup_sound_volume }
+            if imgui.SliderFloat('Rank Up Sound Volume', rankup_volume, 0.0, 100.0, '%.0f%%') then
+                state.settings.rankup_sound_volume = math.max(0, math.min(100, rankup_volume[1]))
+            end
+
+            local auto_show = { state.settings.auto_show_on_dig ~= false }
+            if imgui.Checkbox('Auto Show On Dig', auto_show) then
+                state.settings.auto_show_on_dig = auto_show[1]
+            end
+
+            local show_moon = { state.settings.show_moon ~= false }
+            if imgui.Checkbox('Show Moon', show_moon) then
+                state.settings.show_moon = show_moon[1]
+            end
+
+            local show_last_item = { state.settings.show_last_item ~= false }
+            if imgui.Checkbox('Show Last Item', show_last_item) then
+                state.settings.show_last_item = show_last_item[1]
+            end
+
+            local show_ore = { state.settings.show_ore ~= false }
+            if imgui.Checkbox('Show Ore Window', show_ore) then
+                state.settings.show_ore = show_ore[1]
+            end
+
+            local reset_on_load = { state.settings.reset_on_load == true }
+            if imgui.Checkbox('Reset Session On Load', reset_on_load) then
+                state.settings.reset_on_load = reset_on_load[1]
+            end
+
+            if imgui.Button('Save Settings') then
+                settings.save()
+                print_message('Settings saved.')
+            end
+            imgui.SameLine()
+            if imgui.Button('Reload Settings') then
+                settings.reload()
+                print_message('Settings reloaded.')
+            end
+            imgui.SameLine()
+            if imgui.Button('Reset Settings') then
+                settings.reset()
+                print_message('Settings reset to defaults.')
+            end
+
+            unapply_font_scale()
+        end
+        imgui.End()
+
+        imgui.PopStyleVar(3)
+        imgui.PopStyleColor(4)
+    end
+
+    local function render_main_window()
+        if not state.visible[1] then
+            return
+        end
+
+        local metrics = compute_metrics()
+        local area_delay_text, area_delay_color = get_area_delay_display(metrics.rank.area_delay)
+        local dig_delay_text, dig_delay_color = get_dig_delay_display(metrics.rank.dig_delay)
+        local weather_color = data.WeatherColors[metrics.weather] or data.Colors.text
+        local ore_color = data.Colors.warn
+        local ore_text = 'No'
+        if state.digging.zone_empty[1] then
+            ore_text = 'No - Empty Zone'
+            ore_color = data.Colors.danger
+        elseif metrics.ore_possible then
+            ore_text = 'Yes'
+            ore_color = data.Colors.success
+        end
+
+        imgui.PushStyleColor(ImGuiCol_WindowBg, data.Colors.window_bg)
+        imgui.PushStyleColor(ImGuiCol_Border, data.Colors.border)
+        imgui.PushStyleColor(ImGuiCol_TitleBg, data.Colors.title_bg)
+        imgui.PushStyleColor(ImGuiCol_TitleBgActive, data.Colors.title_bg_active)
+        imgui.PushStyleVar(ImGuiStyleVar_WindowRounding, 6.0)
+        imgui.PushStyleVar(ImGuiStyleVar_WindowBorderSize, 2.0)
+        imgui.PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0)
+        imgui.PushStyleVar(ImGuiStyleVar_ChildRounding, 3.0)
+        imgui.PushStyleVar(ImGuiStyleVar_WindowTitleAlign, { 0.5, 0.5 })
+        imgui.PushStyleVar(ImGuiStyleVar_Alpha, state.settings.window_alpha)
+
+        local window_flags = bit.bor(ImGuiWindowFlags_NoCollapse or 0, ImGuiWindowFlags_AlwaysAutoResize or 0)
+        local began = imgui.Begin('Golddigger', state.visible, window_flags)
+        if began then
+            apply_font_scale(state.settings.font_scale)
+
+            local dpm_text = ('%.2f dpm'):format(state.digging.dig_per_minute)
+            local dpm_width_raw = imgui.CalcTextSize(dpm_text)
+            local content_width_raw = imgui.GetContentRegionAvail()
+            local dpm_width = tonumber(dpm_width_raw) or 0
+            local content_width = tonumber(content_width_raw) or 0
+
+            if imgui.Button('Config') then
+                state.config_visible[1] = true
+            end
+            imgui.SameLine()
+            if imgui.Button('Clear Session') then
+                clear_session(true)
+                print_message('Cleared digging session.')
+            end
+            local dpm_x = math.max(1, content_width - dpm_width)
+            imgui.SameLine(dpm_x)
+            imgui.TextColored(data.Colors.text_dim, dpm_text)
+            imgui.Separator()
+
+            local session_rows = {
+                { label = 'Rank', value = metrics.rank.name, color = data.Colors.gold_soft },
+                { label = 'Skill', value = ('%.1f (+%.1f)'):format(state.settings.dig_skill, state.digging.dig_skillup), color = data.Colors.info },
+                { label = 'Attempts', value = format_int(state.settings.dig_tries), color = data.Colors.text },
+                { label = 'Items Dug / Limit', value = ('%s/%s'):format(format_int(state.settings.dig_items), format_int(metrics.rank.daily_limit)), color = data.Colors.text },
+                { label = 'Accuracy', value = ('%.1f%% act / %.1f%% est'):format(metrics.accuracy, metrics.acc_estimate), color = data.Colors.info },
+                { label = 'To Fatigue', value = format_int(metrics.fatigue_remaining), color = metrics.fatigue_remaining > 20 and data.Colors.success or data.Colors.warn },
+                { label = 'Greens Left', value = ('%s (%d est)'):format(format_int(metrics.greens_total), metrics.est_remaining), color = data.Colors.text },
+                { label = 'Moon', value = ('%s (%d%%)'):format(metrics.moon.phase, metrics.moon.percent), color = data.Colors.gold_soft },
+                { label = 'Weather', value = metrics.weather, color = weather_color },
+                { label = 'Ore Window', value = ore_text, color = ore_color },
+                { label = 'Last Item', value = state.digging.zone_empty[1] and 'ZONE EMPTY' or (state.last_item ~= '' and state.last_item or '--'), color = state.digging.zone_empty[1] and data.Colors.danger or data.Colors.text },
+                { label = 'Area Delay', value = area_delay_text, color = area_delay_color },
+                { label = 'Dig Delay', value = dig_delay_text, color = dig_delay_color },
+            }
+            if not state.settings.show_moon then
+                session_rows[8].label = 'Moon'
+                session_rows[8].value = 'Hidden'
+                session_rows[8].color = data.Colors.text_dim
+            end
+            if not state.settings.show_ore then
+                session_rows[10].value = 'Hidden'
+                session_rows[10].color = data.Colors.text_dim
+            end
+            if not state.settings.show_last_item then
+                session_rows[11].value = 'Hidden'
+                session_rows[11].color = data.Colors.text_dim
+            end
+
+            local session_width = compute_panel_width(session_rows, 260, nil)
+
+            imgui.BeginGroup()
+            render_card('##golddigger_session', 'Session', session_width, 300, session_rows)
+            imgui.EndGroup()
+
+            imgui.Dummy({ 0, 8 })
+
+            if state.settings.show_rewards then
+                render_rewards(metrics, session_width)
+            end
+
+            unapply_font_scale()
+        end
+        imgui.End()
+
+        if state.settings.visible ~= state.visible[1] then
+            state.settings.visible = state.visible[1]
+            settings.save()
+        end
+
+        imgui.PopStyleVar(6)
+        imgui.PopStyleColor(4)
+    end
+
+    return {
+        render_config_window = render_config_window,
+        render_main_window = render_main_window,
+    }
+end
