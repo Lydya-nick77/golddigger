@@ -435,15 +435,6 @@ return function(deps)
         state.last_item = ''
         state.last_attempt = 0
         state.attempt_type = ''
-        state.area_delay.active = false
-        state.area_delay.end_ms = 0
-        state.area_delay.ready = false
-        state.area_delay.pending_start = false
-        state.area_delay.mounted_since_ms = 0
-        state.area_delay.was_mounted = false
-        state.dig_delay.active = false
-        state.dig_delay.end_ms = 0
-        state.dig_delay.ready = false
         state.digging.dig_timing = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }
         state.digging.dig_index = 1
         state.digging.dig_per_minute = 0
