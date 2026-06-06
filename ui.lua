@@ -10,6 +10,7 @@ return function(deps)
     local get_area_delay_display = deps.get_area_delay_display
     local get_dig_delay_display = deps.get_dig_delay_display
     local get_jp_reset_display = deps.get_jp_reset_display
+    local get_day_change_display = deps.get_day_change_display
 
     local function apply_font_scale(scale)
         local clamped = math.max(0.8, math.min(1.6, tonumber(scale) or 1.0))
@@ -64,37 +65,44 @@ return function(deps)
         return minus .. int:reverse():gsub('^,', '') .. fraction
     end
 
-    local function render_value_row(label, value, value_color, value_column_x)
-        local function text_unformatted_bold(content, override_color)
-            local text = tostring(content or '')
-            local x, y = imgui.GetCursorScreenPos()
-            local draw_list = imgui.GetWindowDrawList()
-            if draw_list ~= nil and x ~= nil and y ~= nil then
-                local color_src = override_color or data.Colors.text
-                local text_color = imgui.GetColorU32(color_src)
-                pcall(function()
-                    draw_list:AddText({ x + 1, y }, text_color, text)
-                end)
-            end
-            imgui.TextUnformatted(text)
+    local function draw_shadowed_text(content, color)
+        local text = tostring(content or '')
+        local x, y = imgui.GetCursorScreenPos()
+        local draw_list = imgui.GetWindowDrawList()
+        if draw_list ~= nil and x ~= nil and y ~= nil then
+            local text_color = imgui.GetColorU32(color or data.Colors.text)
+            pcall(function()
+                draw_list:AddText({ x + 1, y }, text_color, text)
+            end)
         end
+        imgui.TextUnformatted(text)
+    end
 
+    local function render_value_row(label, value, value_color, value_column_x)
         imgui.PushStyleColor(ImGuiCol_Text, data.Colors.text)
-        text_unformatted_bold(label, data.Colors.text)
+        draw_shadowed_text(label, data.Colors.text)
         imgui.PopStyleColor(1)
         imgui.SameLine(value_column_x)
         if value_color ~= nil then
             imgui.PushStyleColor(ImGuiCol_Text, value_color)
-            text_unformatted_bold(value, value_color)
+            draw_shadowed_text(value, value_color)
             imgui.PopStyleColor(1)
         else
-            text_unformatted_bold(value)
+            draw_shadowed_text(value)
         end
     end
 
+    local function color_with_alpha(color, alpha_scale)
+        local src = color or { 1, 1, 1, 1 }
+        local scale = math.max(0.0, math.min(1.0, tonumber(alpha_scale) or 1.0))
+        local a = math.max(0.0, math.min(1.0, (tonumber(src[4]) or 1.0) * scale))
+        return { tonumber(src[1]) or 1.0, tonumber(src[2]) or 1.0, tonumber(src[3]) or 1.0, a }
+    end
+
     local function render_card(id, title, width, height, rows, header_buttons_width, render_header_buttons)
-        imgui.PushStyleColor(ImGuiCol_ChildBg, data.Colors.panel_bg)
-        imgui.PushStyleColor(ImGuiCol_Border, data.Colors.border)
+        local alpha = tonumber(state.settings.window_alpha) or 1.0
+        imgui.PushStyleColor(ImGuiCol_ChildBg, color_with_alpha(data.Colors.panel_bg, alpha))
+        imgui.PushStyleColor(ImGuiCol_Border, color_with_alpha(data.Colors.border, alpha))
         imgui.PushStyleVar(ImGuiStyleVar_WindowPadding, { 10, 8 })
         imgui.PushStyleVar(ImGuiStyleVar_FramePadding, { 6, 4 })
         local label_max = 0
@@ -153,8 +161,9 @@ return function(deps)
     end
 
     local function render_rewards(metrics, width)
-        imgui.PushStyleColor(ImGuiCol_ChildBg, data.Colors.panel_bg)
-        imgui.PushStyleColor(ImGuiCol_Border, data.Colors.border)
+        local alpha = tonumber(state.settings.window_alpha) or 1.0
+        imgui.PushStyleColor(ImGuiCol_ChildBg, color_with_alpha(data.Colors.panel_bg, alpha))
+        imgui.PushStyleColor(ImGuiCol_Border, color_with_alpha(data.Colors.border, alpha))
         imgui.PushStyleVar(ImGuiStyleVar_WindowPadding, { 10, 8 })
         imgui.PushStyleVar(ImGuiStyleVar_ItemSpacing, { 6, 4 })
 
@@ -169,15 +178,7 @@ return function(deps)
             else
                 for _, row in ipairs(metrics.reward_rows) do
                     local label = ('%s x%s'):format(row.name, format_int(row.count))
-                    local x, y = imgui.GetCursorScreenPos()
-                    local draw_list = imgui.GetWindowDrawList()
-                    if draw_list ~= nil and x ~= nil and y ~= nil then
-                        local text_color = imgui.GetColorU32(data.Colors.text)
-                        pcall(function()
-                            draw_list:AddText({ x + 1, y }, text_color, label)
-                        end)
-                    end
-                    imgui.TextUnformatted(label)
+                    draw_shadowed_text(label, data.Colors.text)
                 end
             end
         end
@@ -192,13 +193,13 @@ return function(deps)
             return
         end
 
-        imgui.PushStyleColor(ImGuiCol_WindowBg, data.Colors.window_bg)
-        imgui.PushStyleColor(ImGuiCol_Border, data.Colors.border)
-        imgui.PushStyleColor(ImGuiCol_TitleBg, data.Colors.title_bg)
-        imgui.PushStyleColor(ImGuiCol_TitleBgActive, data.Colors.title_bg_active)
+        local alpha = tonumber(state.settings.window_alpha) or 1.0
+        imgui.PushStyleColor(ImGuiCol_WindowBg, color_with_alpha(data.Colors.window_bg, alpha))
+        imgui.PushStyleColor(ImGuiCol_Border, color_with_alpha(data.Colors.border, alpha))
+        imgui.PushStyleColor(ImGuiCol_TitleBg, color_with_alpha(data.Colors.title_bg, alpha))
+        imgui.PushStyleColor(ImGuiCol_TitleBgActive, color_with_alpha(data.Colors.title_bg_active, alpha))
         imgui.PushStyleVar(ImGuiStyleVar_WindowRounding, 6.0)
         imgui.PushStyleVar(ImGuiStyleVar_WindowBorderSize, 2.0)
-        imgui.PushStyleVar(ImGuiStyleVar_Alpha, state.settings.window_alpha)
 
         local began = imgui.Begin('Golddigger Config', state.config_visible, ImGuiWindowFlags_AlwaysAutoResize or 0)
         if began then
@@ -273,7 +274,7 @@ return function(deps)
         end
         imgui.End()
 
-        imgui.PopStyleVar(3)
+        imgui.PopStyleVar(2)
         imgui.PopStyleColor(4)
     end
 
@@ -286,6 +287,7 @@ return function(deps)
         local area_delay_text, area_delay_color = get_area_delay_display(metrics.rank.area_delay)
         local dig_delay_text, dig_delay_color = get_dig_delay_display(metrics.rank.dig_delay)
         local reset_text, reset_color = get_jp_reset_display()
+        local day_change_text, day_change_color = get_day_change_display()
         local weather_color = data.WeatherColors[metrics.weather] or data.Colors.text
         local ore_color = data.Colors.warn
         local ore_text = 'No'
@@ -297,16 +299,16 @@ return function(deps)
             ore_color = data.Colors.success
         end
 
-        imgui.PushStyleColor(ImGuiCol_WindowBg, data.Colors.window_bg)
-        imgui.PushStyleColor(ImGuiCol_Border, data.Colors.border)
-        imgui.PushStyleColor(ImGuiCol_TitleBg, data.Colors.title_bg)
-        imgui.PushStyleColor(ImGuiCol_TitleBgActive, data.Colors.title_bg_active)
+        local alpha = tonumber(state.settings.window_alpha) or 1.0
+        imgui.PushStyleColor(ImGuiCol_WindowBg, color_with_alpha(data.Colors.window_bg, alpha))
+        imgui.PushStyleColor(ImGuiCol_Border, color_with_alpha(data.Colors.border, alpha))
+        imgui.PushStyleColor(ImGuiCol_TitleBg, color_with_alpha(data.Colors.title_bg, alpha))
+        imgui.PushStyleColor(ImGuiCol_TitleBgActive, color_with_alpha(data.Colors.title_bg_active, alpha))
         imgui.PushStyleVar(ImGuiStyleVar_WindowRounding, 6.0)
         imgui.PushStyleVar(ImGuiStyleVar_WindowBorderSize, 2.0)
         imgui.PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0)
         imgui.PushStyleVar(ImGuiStyleVar_ChildRounding, 3.0)
         imgui.PushStyleVar(ImGuiStyleVar_WindowTitleAlign, { 0.5, 0.5 })
-        imgui.PushStyleVar(ImGuiStyleVar_Alpha, state.settings.window_alpha)
 
         local window_flags = bit.bor(ImGuiWindowFlags_NoCollapse or 0, ImGuiWindowFlags_AlwaysAutoResize or 0)
         local began = imgui.Begin('Golddigger', state.visible, window_flags)
@@ -314,24 +316,29 @@ return function(deps)
             apply_font_scale(state.settings.font_scale)
 
             local session_rows = {}
-            table.insert(session_rows, { label = 'Skill', value = ('%.1f (+%.1f) (%s)'):format(state.settings.dig_skill, state.digging.dig_skillup, metrics.rank.name), color = data.Colors.info })
-            table.insert(session_rows, { label = 'Attempts', value = ('%s (%.2f dpm)'):format(format_int(state.settings.dig_tries), state.digging.dig_per_minute), color = data.Colors.text })
-            table.insert(session_rows, { label = 'Items Dug / Limit', value = ('%s/%s (%s to fatigue)'):format(format_int(state.settings.dig_items), format_int(metrics.rank.daily_limit), format_int(metrics.fatigue_remaining)), color = data.Colors.text })
-            table.insert(session_rows, { label = 'Accuracy', value = ('%.1f%% act / %.1f%% est'):format(metrics.accuracy, metrics.acc_estimate), color = data.Colors.info })
-            table.insert(session_rows, { label = 'Greens Left', value = ('%s (%d est)'):format(format_int(metrics.greens_total), metrics.est_remaining), color = data.Colors.text })
-            if state.settings.show_moon then
-                table.insert(session_rows, { label = 'Moon', value = ('%s (%d%%)'):format(metrics.moon.phase, metrics.moon.percent), color = data.Colors.gold_soft })
+            local function add_row(label, value, color)
+                table.insert(session_rows, { label = label, value = value, color = color })
             end
-            table.insert(session_rows, { label = 'Weather', value = metrics.weather, color = weather_color })
+
+            add_row('Skill', ('%.1f (+%.1f) (%s)'):format(state.settings.dig_skill, state.digging.dig_skillup, metrics.rank.name), data.Colors.info)
+            add_row('Attempts', ('%s (%.2f dpm)'):format(format_int(state.settings.dig_tries), state.digging.dig_per_minute), data.Colors.text)
+            add_row('Items Dug / Limit', ('%s/%s (%s to fatigue)'):format(format_int(state.settings.dig_items), format_int(metrics.rank.daily_limit), format_int(metrics.fatigue_remaining)), data.Colors.text)
+            add_row('Accuracy', ('%.1f%% act / %.1f%% est'):format(metrics.accuracy, metrics.acc_estimate), data.Colors.info)
+            add_row('Greens Left', ('%s (%d est)'):format(format_int(metrics.greens_total), metrics.est_remaining), data.Colors.text)
+            if state.settings.show_moon then
+                add_row('Moon', ('%s (%d%%)'):format(metrics.moon.phase, metrics.moon.percent), data.Colors.gold_soft)
+            end
+            add_row('Weather', metrics.weather, weather_color)
             if state.settings.show_ore then
-                table.insert(session_rows, { label = 'Ore Window', value = ore_text, color = ore_color })
+                add_row('Ore Window', ore_text, ore_color)
             end
             if state.settings.show_last_item then
-                table.insert(session_rows, { label = 'Last Item', value = state.digging.zone_empty[1] and 'ZONE EMPTY' or (state.last_item ~= '' and state.last_item or '--'), color = state.digging.zone_empty[1] and data.Colors.danger or data.Colors.text })
+                add_row('Last Item', state.digging.zone_empty[1] and 'ZONE EMPTY' or (state.last_item ~= '' and state.last_item or '--'), state.digging.zone_empty[1] and data.Colors.danger or data.Colors.text)
             end
-            table.insert(session_rows, { label = 'Area Delay', value = area_delay_text, color = area_delay_color })
-            table.insert(session_rows, { label = 'Dig Delay', value = dig_delay_text, color = dig_delay_color })
-            table.insert(session_rows, { label = 'JP Reset In', value = reset_text, color = reset_color })
+            add_row('Area Delay', area_delay_text, area_delay_color)
+            add_row('Dig Delay', dig_delay_text, dig_delay_color)
+            add_row('JP Reset In', reset_text, reset_color)
+            add_row('Day Change In', day_change_text, day_change_color)
 
             local session_width = compute_panel_width(session_rows, 260, nil)
             local line_height = 18
@@ -371,7 +378,7 @@ return function(deps)
             settings.save()
         end
 
-        imgui.PopStyleVar(6)
+        imgui.PopStyleVar(5)
         imgui.PopStyleColor(4)
     end
 

@@ -11,6 +11,14 @@ return function(deps)
     local memory_cache = {
         vana_time_sig = nil,
         weather_sig = nil,
+        timer_display = {
+            next_update_ms = 0,
+            jp_reset_text = '--:--:--',
+            jp_reset_color = nil,
+            day_change_text = '--:--',
+            day_change_color = nil,
+            jst_day_key = nil,
+        },
     }
 
     local dig_rank_data = {
@@ -115,22 +123,30 @@ return function(deps)
         return cleaned:lower()
     end
 
-    local function get_timestamp()
+    local function get_vana_raw_time()
         if memory_cache.vana_time_sig == nil then
             memory_cache.vana_time_sig = ashita.memory.find('FFXiMain.dll', 0, 'B0015EC390518B4C24088D4424005068', 0, 0)
         end
 
         local sig = tonumber(memory_cache.vana_time_sig) or 0
         if sig <= 0 then
-            return { day = 0, hour = 0, minute = 0 }
+            return nil
         end
 
         local pointer = tonumber(ashita.memory.read_uint32(sig + 0x34)) or 0
         if pointer <= 0 then
+            return nil
+        end
+
+        return (tonumber(ashita.memory.read_uint32(pointer + 0x0C)) or 0) + 92514960
+    end
+
+    local function get_timestamp()
+        local raw_time = get_vana_raw_time()
+        if raw_time == nil then
             return { day = 0, hour = 0, minute = 0 }
         end
 
-        local raw_time = (tonumber(ashita.memory.read_uint32(pointer + 0x0C)) or 0) + 92514960
         local timestamp = {}
         timestamp.day = math.floor(raw_time / 3456)
         timestamp.hour = math.floor(raw_time / 144) % 24
@@ -382,23 +398,60 @@ return function(deps)
         return (year * 1000) + yday
     end
 
-    local function get_jp_reset_display()
+    local function update_timer_display_cache()
+        local clock_ms = now_ms()
+        if clock_ms < (tonumber(memory_cache.timer_display.next_update_ms) or 0) then
+            return
+        end
+
+        memory_cache.timer_display.next_update_ms = clock_ms + 1000
+
         local jst = get_jst_clock()
-        if jst == nil then
-            return '--:--:--', data.Colors.text_dim
+        if jst ~= nil then
+            local elapsed = ((tonumber(jst.hour) or 0) * 3600) + ((tonumber(jst.min) or 0) * 60) + (tonumber(jst.sec) or 0)
+            local remaining = math.max(0, 86400 - elapsed)
+            if remaining == 0 then
+                remaining = 86400
+            end
+
+            local hours = math.floor(remaining / 3600)
+            local minutes = math.floor((remaining % 3600) / 60)
+            local seconds = remaining % 60
+            memory_cache.timer_display.jp_reset_text = ('%02d:%02d:%02d'):format(hours, minutes, seconds)
+            memory_cache.timer_display.jp_reset_color = data.Colors.info
+            memory_cache.timer_display.jst_day_key = get_jst_day_key(jst)
+        else
+            memory_cache.timer_display.jp_reset_text = '--:--:--'
+            memory_cache.timer_display.jp_reset_color = data.Colors.text_dim
+            memory_cache.timer_display.jst_day_key = nil
         end
 
-        local elapsed = ((tonumber(jst.hour) or 0) * 3600) + ((tonumber(jst.min) or 0) * 60) + (tonumber(jst.sec) or 0)
-        local remaining = math.max(0, 86400 - elapsed)
-        if remaining == 0 then
-            remaining = 86400
+        local raw_time = get_vana_raw_time()
+        if raw_time ~= nil then
+            local elapsed = raw_time % 3456
+            local remaining = math.max(0, 3456 - elapsed)
+            if remaining == 0 then
+                remaining = 3456
+            end
+
+            local minutes = math.floor(remaining / 60)
+            local seconds = remaining % 60
+            memory_cache.timer_display.day_change_text = ('%02d:%02d'):format(minutes, seconds)
+            memory_cache.timer_display.day_change_color = data.Colors.info
+        else
+            memory_cache.timer_display.day_change_text = '--:--'
+            memory_cache.timer_display.day_change_color = data.Colors.text_dim
         end
+    end
 
-        local hours = math.floor(remaining / 3600)
-        local minutes = math.floor((remaining % 3600) / 60)
-        local seconds = remaining % 60
+    local function get_jp_reset_display()
+        update_timer_display_cache()
+        return memory_cache.timer_display.jp_reset_text, memory_cache.timer_display.jp_reset_color or data.Colors.text_dim
+    end
 
-        return ('%02d:%02d:%02d'):format(hours, minutes, seconds), data.Colors.info
+    local function get_day_change_display()
+        update_timer_display_cache()
+        return memory_cache.timer_display.day_change_text, memory_cache.timer_display.day_change_color or data.Colors.text_dim
     end
 
     local function calculate_dpm(dig_time_ms)
@@ -452,8 +505,8 @@ return function(deps)
     end
 
     local function update_jp_reset_state()
-        local jst = get_jst_clock()
-        local day_key = get_jst_day_key(jst)
+        update_timer_display_cache()
+        local day_key = memory_cache.timer_display.jst_day_key
         if day_key == nil then
             return
         end
@@ -629,6 +682,7 @@ return function(deps)
         get_area_delay_display = get_area_delay_display,
         get_dig_delay_display = get_dig_delay_display,
         get_jp_reset_display = get_jp_reset_display,
+        get_day_change_display = get_day_change_display,
         clear_session = clear_session,
         compute_metrics = compute_metrics,
         on_packet_in = on_packet_in,

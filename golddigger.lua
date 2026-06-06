@@ -134,6 +134,7 @@ ui = create_ui({
     get_area_delay_display = core.get_area_delay_display,
     get_dig_delay_display = core.get_dig_delay_display,
     get_jp_reset_display = core.get_jp_reset_display,
+    get_day_change_display = core.get_day_change_display,
 })
 
 local function print_help(is_error)
