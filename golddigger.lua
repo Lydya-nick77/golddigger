@@ -1,6 +1,6 @@
 addon.name = 'golddigger'
 addon.author = 'Lydya'
-addon.version = '0.2.0'
+addon.version = '0.3.0'
 addon.desc = 'Chocobo digging addon based on Hgather.'
 addon.commands = { '/golddigger', '/gd' }
 
@@ -17,6 +17,7 @@ local sound_player = dofile(addon.path .. 'sound.lua')
 local default_settings = T{
     visible = true,
     auto_show_on_dig = true,
+    auto_clear_on_jp_reset = false,
     show_moon = true,
     show_last_item = true,
     show_ore = true,
@@ -67,6 +68,9 @@ local state = T{
         moon = { phase = 'Unknown', percent = 0 },
         next_update_ms = 0,
     },
+    jp_reset = {
+        last_day_key = nil,
+    },
 }
 
 local core
@@ -78,6 +82,7 @@ local function apply_settings(s)
 
     state.settings.visible = state.settings.visible == true
     state.settings.auto_show_on_dig = state.settings.auto_show_on_dig ~= false
+    state.settings.auto_clear_on_jp_reset = state.settings.auto_clear_on_jp_reset == true
     state.settings.show_moon = state.settings.show_moon ~= false
     state.settings.show_last_item = state.settings.show_last_item ~= false
     state.settings.show_ore = state.settings.show_ore ~= false
@@ -128,6 +133,7 @@ ui = create_ui({
     compute_metrics = core.compute_metrics,
     get_area_delay_display = core.get_area_delay_display,
     get_dig_delay_display = core.get_dig_delay_display,
+    get_jp_reset_display = core.get_jp_reset_display,
 })
 
 local function print_help(is_error)
@@ -201,6 +207,7 @@ end)
 ashita.events.register('d3d_present', 'golddigger_present', function()
     sound_player.Tick()
     core.update_area_delay_timer_state()
+    core.update_jp_reset_state()
     ui.render_config_window()
     ui.render_main_window()
 end)

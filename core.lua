@@ -63,12 +63,23 @@ return function(deps)
         pcall(ashita.misc.play_sound, ore_sound_path)
     end
 
+    local elemental_ore_names = {
+        ['chunk of fire ore'] = true,
+        ['chunk of ice ore'] = true,
+        ['chunk of wind ore'] = true,
+        ['chunk of earth ore'] = true,
+        ['chunk of lightning ore'] = true,
+        ['chunk of water ore'] = true,
+        ['chunk of light ore'] = true,
+        ['chunk of dark ore'] = true,
+    }
+
     local function is_elemental_ore(item_name)
         if type(item_name) ~= 'string' then
             return false
         end
 
-        return item_name:match('^chunk of .+ ore$') ~= nil
+        return elemental_ore_names[item_name] == true
     end
 
     local function strip_colors(text)
@@ -355,6 +366,41 @@ return function(deps)
         return ('%ds'):format(remaining_seconds), data.Colors.danger
     end
 
+    local function get_jst_clock()
+        local now_utc = os.time()
+        local now_jst = now_utc + (9 * 60 * 60)
+        return os.date('!*t', now_jst)
+    end
+
+    local function get_jst_day_key(jst)
+        if jst == nil then
+            return nil
+        end
+
+        local year = tonumber(jst.year) or 0
+        local yday = tonumber(jst.yday) or 0
+        return (year * 1000) + yday
+    end
+
+    local function get_jp_reset_display()
+        local jst = get_jst_clock()
+        if jst == nil then
+            return '--:--:--', data.Colors.text_dim
+        end
+
+        local elapsed = ((tonumber(jst.hour) or 0) * 3600) + ((tonumber(jst.min) or 0) * 60) + (tonumber(jst.sec) or 0)
+        local remaining = math.max(0, 86400 - elapsed)
+        if remaining == 0 then
+            remaining = 86400
+        end
+
+        local hours = math.floor(remaining / 3600)
+        local minutes = math.floor((remaining % 3600) / 60)
+        local seconds = remaining % 60
+
+        return ('%02d:%02d:%02d'):format(hours, minutes, seconds), data.Colors.info
+    end
+
     local function calculate_dpm(dig_time_ms)
         state.digging.dig_timing[state.digging.dig_index] = dig_time_ms
 
@@ -411,6 +457,27 @@ return function(deps)
 
         if save_after ~= false then
             settings.save()
+        end
+    end
+
+    local function update_jp_reset_state()
+        local jst = get_jst_clock()
+        local day_key = get_jst_day_key(jst)
+        if day_key == nil then
+            return
+        end
+
+        if state.jp_reset.last_day_key == nil then
+            state.jp_reset.last_day_key = day_key
+            return
+        end
+
+        if day_key ~= state.jp_reset.last_day_key then
+            state.jp_reset.last_day_key = day_key
+            if state.settings.auto_clear_on_jp_reset == true then
+                clear_session(true)
+                print_message('Session auto-cleared at JP daily reset.')
+            end
         end
     end
 
@@ -567,8 +634,10 @@ return function(deps)
 
     return {
         update_area_delay_timer_state = update_area_delay_timer_state,
+        update_jp_reset_state = update_jp_reset_state,
         get_area_delay_display = get_area_delay_display,
         get_dig_delay_display = get_dig_delay_display,
+        get_jp_reset_display = get_jp_reset_display,
         clear_session = clear_session,
         compute_metrics = compute_metrics,
         on_packet_in = on_packet_in,

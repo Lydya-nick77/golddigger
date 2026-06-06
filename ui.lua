@@ -9,6 +9,7 @@ return function(deps)
     local compute_metrics = deps.compute_metrics
     local get_area_delay_display = deps.get_area_delay_display
     local get_dig_delay_display = deps.get_dig_delay_display
+    local get_jp_reset_display = deps.get_jp_reset_display
 
     local function apply_font_scale(scale)
         local clamped = math.max(0.8, math.min(1.6, tonumber(scale) or 1.0))
@@ -91,7 +92,7 @@ return function(deps)
         end
     end
 
-    local function render_card(id, title, width, height, rows)
+    local function render_card(id, title, width, height, rows, header_buttons_width, render_header_buttons)
         imgui.PushStyleColor(ImGuiCol_ChildBg, data.Colors.panel_bg)
         imgui.PushStyleColor(ImGuiCol_Border, data.Colors.border)
         imgui.PushStyleVar(ImGuiStyleVar_WindowPadding, { 10, 8 })
@@ -107,6 +108,13 @@ return function(deps)
         local began = begin_child_compat(id, { width, height }, true, 0)
         if began then
             imgui.TextColored(data.Colors.gold, title)
+            if render_header_buttons ~= nil then
+                local content_width_raw = imgui.GetContentRegionAvail()
+                local content_width = tonumber(content_width_raw) or 0
+                local right_x = math.max(1, content_width - (tonumber(header_buttons_width) or 0))
+                imgui.SameLine(right_x)
+                render_header_buttons()
+            end
             imgui.Separator()
             for _, row in ipairs(rows) do
                 render_value_row(row.label, row.value, row.color, value_column_x)
@@ -241,6 +249,11 @@ return function(deps)
                 state.settings.reset_on_load = reset_on_load[1]
             end
 
+            local auto_clear_on_jp_reset = { state.settings.auto_clear_on_jp_reset == true }
+            if imgui.Checkbox('Auto Clear Session At JP Reset', auto_clear_on_jp_reset) then
+                state.settings.auto_clear_on_jp_reset = auto_clear_on_jp_reset[1]
+            end
+
             if imgui.Button('Save Settings') then
                 settings.save()
                 print_message('Settings saved.')
@@ -272,6 +285,7 @@ return function(deps)
         local metrics = compute_metrics()
         local area_delay_text, area_delay_color = get_area_delay_display(metrics.rank.area_delay)
         local dig_delay_text, dig_delay_color = get_dig_delay_display(metrics.rank.dig_delay)
+        local reset_text, reset_color = get_jp_reset_display()
         local weather_color = data.WeatherColors[metrics.weather] or data.Colors.text
         local ore_color = data.Colors.warn
         local ore_text = 'No'
@@ -299,58 +313,47 @@ return function(deps)
         if began then
             apply_font_scale(state.settings.font_scale)
 
-            local dpm_text = ('%.2f dpm'):format(state.digging.dig_per_minute)
-            local dpm_width_raw = imgui.CalcTextSize(dpm_text)
-            local content_width_raw = imgui.GetContentRegionAvail()
-            local dpm_width = tonumber(dpm_width_raw) or 0
-            local content_width = tonumber(content_width_raw) or 0
-
-            if imgui.Button('Config') then
-                state.config_visible[1] = true
+            local session_rows = {}
+            table.insert(session_rows, { label = 'Skill', value = ('%.1f (+%.1f) (%s)'):format(state.settings.dig_skill, state.digging.dig_skillup, metrics.rank.name), color = data.Colors.info })
+            table.insert(session_rows, { label = 'Attempts', value = ('%s (%.2f dpm)'):format(format_int(state.settings.dig_tries), state.digging.dig_per_minute), color = data.Colors.text })
+            table.insert(session_rows, { label = 'Items Dug / Limit', value = ('%s/%s (%s to fatigue)'):format(format_int(state.settings.dig_items), format_int(metrics.rank.daily_limit), format_int(metrics.fatigue_remaining)), color = data.Colors.text })
+            table.insert(session_rows, { label = 'Accuracy', value = ('%.1f%% act / %.1f%% est'):format(metrics.accuracy, metrics.acc_estimate), color = data.Colors.info })
+            table.insert(session_rows, { label = 'Greens Left', value = ('%s (%d est)'):format(format_int(metrics.greens_total), metrics.est_remaining), color = data.Colors.text })
+            if state.settings.show_moon then
+                table.insert(session_rows, { label = 'Moon', value = ('%s (%d%%)'):format(metrics.moon.phase, metrics.moon.percent), color = data.Colors.gold_soft })
             end
-            imgui.SameLine()
-            if imgui.Button('Clear Session') then
-                clear_session(true)
-                print_message('Cleared digging session.')
+            table.insert(session_rows, { label = 'Weather', value = metrics.weather, color = weather_color })
+            if state.settings.show_ore then
+                table.insert(session_rows, { label = 'Ore Window', value = ore_text, color = ore_color })
             end
-            local dpm_x = math.max(1, content_width - dpm_width)
-            imgui.SameLine(dpm_x)
-            imgui.TextColored(data.Colors.text_dim, dpm_text)
-            imgui.Separator()
-
-            local session_rows = {
-                { label = 'Rank', value = metrics.rank.name, color = data.Colors.gold_soft },
-                { label = 'Skill', value = ('%.1f (+%.1f)'):format(state.settings.dig_skill, state.digging.dig_skillup), color = data.Colors.info },
-                { label = 'Attempts', value = format_int(state.settings.dig_tries), color = data.Colors.text },
-                { label = 'Items Dug / Limit', value = ('%s/%s'):format(format_int(state.settings.dig_items), format_int(metrics.rank.daily_limit)), color = data.Colors.text },
-                { label = 'Accuracy', value = ('%.1f%% act / %.1f%% est'):format(metrics.accuracy, metrics.acc_estimate), color = data.Colors.info },
-                { label = 'To Fatigue', value = format_int(metrics.fatigue_remaining), color = metrics.fatigue_remaining > 20 and data.Colors.success or data.Colors.warn },
-                { label = 'Greens Left', value = ('%s (%d est)'):format(format_int(metrics.greens_total), metrics.est_remaining), color = data.Colors.text },
-                { label = 'Moon', value = ('%s (%d%%)'):format(metrics.moon.phase, metrics.moon.percent), color = data.Colors.gold_soft },
-                { label = 'Weather', value = metrics.weather, color = weather_color },
-                { label = 'Ore Window', value = ore_text, color = ore_color },
-                { label = 'Last Item', value = state.digging.zone_empty[1] and 'ZONE EMPTY' or (state.last_item ~= '' and state.last_item or '--'), color = state.digging.zone_empty[1] and data.Colors.danger or data.Colors.text },
-                { label = 'Area Delay', value = area_delay_text, color = area_delay_color },
-                { label = 'Dig Delay', value = dig_delay_text, color = dig_delay_color },
-            }
-            if not state.settings.show_moon then
-                session_rows[8].label = 'Moon'
-                session_rows[8].value = 'Hidden'
-                session_rows[8].color = data.Colors.text_dim
+            if state.settings.show_last_item then
+                table.insert(session_rows, { label = 'Last Item', value = state.digging.zone_empty[1] and 'ZONE EMPTY' or (state.last_item ~= '' and state.last_item or '--'), color = state.digging.zone_empty[1] and data.Colors.danger or data.Colors.text })
             end
-            if not state.settings.show_ore then
-                session_rows[10].value = 'Hidden'
-                session_rows[10].color = data.Colors.text_dim
-            end
-            if not state.settings.show_last_item then
-                session_rows[11].value = 'Hidden'
-                session_rows[11].color = data.Colors.text_dim
-            end
+            table.insert(session_rows, { label = 'Area Delay', value = area_delay_text, color = area_delay_color })
+            table.insert(session_rows, { label = 'Dig Delay', value = dig_delay_text, color = dig_delay_color })
+            table.insert(session_rows, { label = 'JP Reset In', value = reset_text, color = reset_color })
 
             local session_width = compute_panel_width(session_rows, 260, nil)
+            local line_height = 18
+            if imgui.GetTextLineHeightWithSpacing then
+                line_height = tonumber(imgui.GetTextLineHeightWithSpacing()) or line_height
+            end
+            local session_height = math.max(120, math.floor(((#session_rows + 2) * line_height) + 20))
+            local config_button_width = get_text_width('Config') + 12
+            local clear_button_width = get_text_width('Clear Session') + 12
+            local header_buttons_width = config_button_width + clear_button_width + 8
 
             imgui.BeginGroup()
-            render_card('##golddigger_session', 'Session', session_width, 300, session_rows)
+            render_card('##golddigger_session', 'Session', session_width, session_height, session_rows, header_buttons_width, function()
+                if imgui.Button('Config') then
+                    state.config_visible[1] = true
+                end
+                imgui.SameLine()
+                if imgui.Button('Clear Session') then
+                    clear_session(true)
+                    print_message('Cleared digging session.')
+                end
+            end)
             imgui.EndGroup()
 
             imgui.Dummy({ 0, 8 })
