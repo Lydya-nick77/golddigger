@@ -1,6 +1,6 @@
 addon.name = 'golddigger'
 addon.author = 'Lydya'
-addon.version = '0.3.0'
+addon.version = '0.4.0'
 addon.desc = 'Chocobo digging addon based on Hgather.'
 addon.commands = { '/golddigger', '/gd' }
 
@@ -22,6 +22,7 @@ local default_settings = T{
     show_last_item = true,
     show_ore = true,
     show_rewards = true,
+    show_zone_items = true,
     font_scale = 1.20,
     window_alpha = 0.95,
     dig_skill = 0,
@@ -87,6 +88,7 @@ local function apply_settings(s)
     state.settings.show_last_item = state.settings.show_last_item ~= false
     state.settings.show_ore = state.settings.show_ore ~= false
     state.settings.show_rewards = state.settings.show_rewards ~= false
+    state.settings.show_zone_items = state.settings.show_zone_items ~= false
     state.settings.font_scale = math.max(0.8, math.min(1.6, tonumber(state.settings.font_scale) or default_settings.font_scale))
     state.settings.window_alpha = math.max(0.3, math.min(1.0, tonumber(state.settings.window_alpha) or default_settings.window_alpha))
     state.settings.dig_skill = math.max(0, tonumber(state.settings.dig_skill) or default_settings.dig_skill)
@@ -135,6 +137,7 @@ ui = create_ui({
     get_dig_delay_display = core.get_dig_delay_display,
     get_jp_reset_display = core.get_jp_reset_display,
     get_day_change_display = core.get_day_change_display,
+    get_current_zone_name = core.get_current_zone_name,
 })
 
 local function print_help(is_error)

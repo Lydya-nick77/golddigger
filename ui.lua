@@ -11,6 +11,7 @@ return function(deps)
     local get_dig_delay_display = deps.get_dig_delay_display
     local get_jp_reset_display = deps.get_jp_reset_display
     local get_day_change_display = deps.get_day_change_display
+    local get_current_zone_name = deps.get_current_zone_name
 
     local function apply_font_scale(scale)
         local clamped = math.max(0.8, math.min(1.6, tonumber(scale) or 1.0))
@@ -188,6 +189,65 @@ return function(deps)
         imgui.PopStyleColor(2)
     end
 
+    local function get_current_zone_items()
+        local zone_name = type(get_current_zone_name) == 'function' and get_current_zone_name() or nil
+        local lookup_key = zone_name ~= nil and zone_name:lower() or nil
+        local items = lookup_key ~= nil and data.ZoneItems ~= nil and data.ZoneItems[lookup_key] or nil
+        return zone_name, items
+    end
+
+    local function compute_zone_items_panel_size(zone_name, items, line_height)
+        local width_max = get_text_width('Possible Items')
+        if zone_name ~= nil and zone_name ~= '' then
+            width_max = math.max(width_max, get_text_width(zone_name))
+        end
+
+        if items ~= nil then
+            for _, item_name in ipairs(items) do
+                width_max = math.max(width_max, get_text_width(item_name))
+            end
+        else
+            width_max = math.max(width_max, get_text_width('N/A'))
+        end
+
+        local item_count = items ~= nil and #items or 1
+        local row_count = 4 + item_count
+
+        return math.max(120, math.floor(width_max + 20)), math.max(70, math.floor((row_count * line_height) + 10))
+    end
+
+    local function render_zone_items_panel(width, height, zone_name, items)
+        local panel_width = math.max(120, tonumber(width) or 170)
+        local panel_height = math.max(80, tonumber(height) or 120)
+
+        local alpha = tonumber(state.settings.window_alpha) or 1.0
+        imgui.PushStyleColor(ImGuiCol_ChildBg, color_with_alpha(data.Colors.panel_bg, alpha))
+        imgui.PushStyleColor(ImGuiCol_Border, color_with_alpha(data.Colors.border, alpha))
+        imgui.PushStyleVar(ImGuiStyleVar_WindowPadding, { 8, 6 })
+        imgui.PushStyleVar(ImGuiStyleVar_ItemSpacing, { 4, 2 })
+
+        local began = begin_child_compat('##golddigger_zone_items', { panel_width, panel_height }, true, 0)
+        if began then
+            imgui.TextColored(data.Colors.gold, 'Possible Items')
+            imgui.Separator()
+            if zone_name ~= nil then
+                imgui.TextColored(data.Colors.text_dim, zone_name)
+                imgui.Separator()
+            end
+            if items == nil then
+                imgui.TextColored(data.Colors.text_dim, 'N/A')
+            else
+                for _, item in ipairs(items) do
+                    draw_shadowed_text(item, data.Colors.text)
+                end
+            end
+        end
+        imgui.EndChild()
+
+        imgui.PopStyleVar(2)
+        imgui.PopStyleColor(2)
+    end
+
     local function render_config_window()
         if not state.config_visible[1] then
             return
@@ -245,6 +305,11 @@ return function(deps)
                 state.settings.show_ore = show_ore[1]
             end
 
+            local show_zone_items = { state.settings.show_zone_items ~= false }
+            if imgui.Checkbox('Show Zone Items', show_zone_items) then
+                state.settings.show_zone_items = show_zone_items[1]
+            end
+
             local reset_on_load = { state.settings.reset_on_load == true }
             if imgui.Checkbox('Reset Session On Load', reset_on_load) then
                 state.settings.reset_on_load = reset_on_load[1]
@@ -299,18 +364,15 @@ return function(deps)
             ore_color = data.Colors.success
         end
 
-        local alpha = tonumber(state.settings.window_alpha) or 1.0
-        imgui.PushStyleColor(ImGuiCol_WindowBg, color_with_alpha(data.Colors.window_bg, alpha))
-        imgui.PushStyleColor(ImGuiCol_Border, color_with_alpha(data.Colors.border, alpha))
-        imgui.PushStyleColor(ImGuiCol_TitleBg, color_with_alpha(data.Colors.title_bg, alpha))
-        imgui.PushStyleColor(ImGuiCol_TitleBgActive, color_with_alpha(data.Colors.title_bg_active, alpha))
+        imgui.PushStyleColor(ImGuiCol_WindowBg, { 0.0, 0.0, 0.0, 0.0 })
+        imgui.PushStyleColor(ImGuiCol_Border, { 0.0, 0.0, 0.0, 0.0 })
         imgui.PushStyleVar(ImGuiStyleVar_WindowRounding, 6.0)
-        imgui.PushStyleVar(ImGuiStyleVar_WindowBorderSize, 2.0)
+        imgui.PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0)
         imgui.PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0)
         imgui.PushStyleVar(ImGuiStyleVar_ChildRounding, 3.0)
         imgui.PushStyleVar(ImGuiStyleVar_WindowTitleAlign, { 0.5, 0.5 })
 
-        local window_flags = bit.bor(ImGuiWindowFlags_NoCollapse or 0, ImGuiWindowFlags_AlwaysAutoResize or 0)
+        local window_flags = bit.bor(ImGuiWindowFlags_NoCollapse or 0, ImGuiWindowFlags_AlwaysAutoResize or 0, ImGuiWindowFlags_NoTitleBar or 0)
         local began = imgui.Begin('Golddigger', state.visible, window_flags)
         if began then
             apply_font_scale(state.settings.font_scale)
@@ -349,9 +411,18 @@ return function(deps)
             local config_button_width = get_text_width('Config') + 12
             local clear_button_width = get_text_width('Clear Session') + 12
             local header_buttons_width = config_button_width + clear_button_width + 8
+            local zone_items_panel_width = 170
+            local zone_items_panel_height = 100
+            local zone_name, zone_items = nil, nil
+            if state.settings.show_zone_items ~= false then
+                zone_name, zone_items = get_current_zone_items()
+                zone_items_panel_width, zone_items_panel_height = compute_zone_items_panel_size(zone_name, zone_items, line_height)
+            end
+            local session_pos_x = tonumber(imgui.GetCursorPosX()) or 0
+            local session_pos_y = tonumber(imgui.GetCursorPosY()) or 0
 
             imgui.BeginGroup()
-            render_card('##golddigger_session', 'Session', session_width, session_height, session_rows, header_buttons_width, function()
+            render_card('##golddigger_session', 'Golddigger', session_width, session_height, session_rows, header_buttons_width, function()
                 if imgui.Button('Config') then
                     state.config_visible[1] = true
                 end
@@ -363,7 +434,14 @@ return function(deps)
             end)
             imgui.EndGroup()
 
-            imgui.Dummy({ 0, 8 })
+            if state.settings.show_zone_items ~= false then
+                local side_x = session_pos_x + session_width + 6
+                local side_y = session_pos_y + math.max(0, math.floor((session_height - zone_items_panel_height) / 2))
+                imgui.SetCursorPos({ side_x, side_y })
+                render_zone_items_panel(zone_items_panel_width, zone_items_panel_height, zone_name, zone_items)
+            end
+
+            imgui.SetCursorPos({ session_pos_x, session_pos_y + session_height + 8 })
 
             if state.settings.show_rewards then
                 render_rewards(metrics, session_width)
@@ -379,7 +457,7 @@ return function(deps)
         end
 
         imgui.PopStyleVar(5)
-        imgui.PopStyleColor(4)
+        imgui.PopStyleColor(2)
     end
 
     return {

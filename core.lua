@@ -676,6 +676,24 @@ return function(deps)
         end
     end
 
+    local function get_current_zone_name()
+        local ok, zone_id = pcall(function()
+            return AshitaCore:GetMemoryManager():GetParty():GetMemberZone(0)
+        end)
+        if not ok or zone_id == nil or zone_id == 0 then
+            return nil
+        end
+
+        local ok2, zone_name = pcall(function()
+            return AshitaCore:GetResourceManager():GetString('zones.names', zone_id)
+        end)
+        if ok2 and type(zone_name) == 'string' and zone_name ~= '' then
+            return zone_name
+        end
+
+        return nil
+    end
+
     return {
         update_area_delay_timer_state = update_area_delay_timer_state,
         update_jp_reset_state = update_jp_reset_state,
@@ -685,6 +703,7 @@ return function(deps)
         get_day_change_display = get_day_change_display,
         clear_session = clear_session,
         compute_metrics = compute_metrics,
+        get_current_zone_name = get_current_zone_name,
         on_packet_in = on_packet_in,
         on_packet_out = on_packet_out,
         on_text_in = on_text_in,
