@@ -1,6 +1,6 @@
 addon.name = 'golddigger'
 addon.author = 'Lydya'
-addon.version = '0.4.0'
+addon.version = '0.4.5'
 addon.desc = 'Chocobo digging addon based on Hgather.'
 addon.commands = { '/golddigger', '/gd' }
 
@@ -121,6 +121,8 @@ core = create_core({
     print_message = print_message,
     sound_player = sound_player,
     rankup_sound_path = addon.path .. 'assets\\ffxiv-levelup.wav',
+    levelup_sound_path = addon.path .. 'assets\\level.wav',
+    skillup_sound_path = addon.path .. 'assets\\skillup.wav',
     ore_sound_path = addon.path .. 'assets\\money.wav',
 })
 

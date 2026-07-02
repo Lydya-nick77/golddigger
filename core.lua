@@ -6,6 +6,8 @@ return function(deps)
     local print_message = deps.print_message
     local sound_player = deps.sound_player
     local rankup_sound_path = deps.rankup_sound_path
+    local levelup_sound_path = deps.levelup_sound_path
+    local skillup_sound_path = deps.skillup_sound_path
     local ore_sound_path = deps.ore_sound_path
 
     local memory_cache = {
@@ -17,6 +19,8 @@ return function(deps)
             jp_reset_color = nil,
             day_change_text = '--:--',
             day_change_color = nil,
+            ore_window_timer_text = '--:--:--',
+            ore_window_timer_color = nil,
             jst_day_key = nil,
         },
     }
@@ -56,6 +60,40 @@ return function(deps)
         end
 
         pcall(sound_player.Play, rankup_sound_path, volume)
+    end
+
+    local function play_levelup_sound()
+        if sound_player == nil or type(sound_player.Play) ~= 'function' then
+            return
+        end
+
+        if levelup_sound_path == nil or levelup_sound_path == '' then
+            return
+        end
+
+        local volume = tonumber(state.settings.rankup_sound_volume) or 50
+        if volume <= 0 then
+            return
+        end
+
+        pcall(sound_player.Play, levelup_sound_path, volume)
+    end
+
+    local function play_skillup_sound()
+        if sound_player == nil or type(sound_player.Play) ~= 'function' then
+            return
+        end
+
+        if skillup_sound_path == nil or skillup_sound_path == '' then
+            return
+        end
+
+        local volume = tonumber(state.settings.rankup_sound_volume) or 50
+        if volume <= 0 then
+            return
+        end
+
+        pcall(sound_player.Play, skillup_sound_path, volume)
     end
 
     local function play_ore_sound()
@@ -398,6 +436,9 @@ return function(deps)
         return (year * 1000) + yday
     end
 
+    local format_duration_hhmmss
+    local get_ore_window_timer_state
+
     local function update_timer_display_cache()
         local clock_ms = now_ms()
         if clock_ms < (tonumber(memory_cache.timer_display.next_update_ms) or 0) then
@@ -442,6 +483,21 @@ return function(deps)
             memory_cache.timer_display.day_change_text = '--:--'
             memory_cache.timer_display.day_change_color = data.Colors.text_dim
         end
+
+        local ore_window_now, ore_window_timer_seconds = get_ore_window_timer_state()
+        if ore_window_timer_seconds ~= nil then
+            local timer_value = format_duration_hhmmss(ore_window_timer_seconds)
+            if ore_window_now then
+                memory_cache.timer_display.ore_window_timer_text = ('Now until %s'):format(timer_value)
+                memory_cache.timer_display.ore_window_timer_color = data.Colors.success
+            else
+                memory_cache.timer_display.ore_window_timer_text = timer_value
+                memory_cache.timer_display.ore_window_timer_color = data.Colors.info
+            end
+        else
+            memory_cache.timer_display.ore_window_timer_text = '--:--:--'
+            memory_cache.timer_display.ore_window_timer_color = data.Colors.text_dim
+        end
     end
 
     local function get_jp_reset_display()
@@ -452,6 +508,41 @@ return function(deps)
     local function get_day_change_display()
         update_timer_display_cache()
         return memory_cache.timer_display.day_change_text, memory_cache.timer_display.day_change_color or data.Colors.text_dim
+    end
+
+    format_duration_hhmmss = function(total_seconds)
+        local seconds = math.max(0, math.floor(tonumber(total_seconds) or 0))
+        local hours = math.floor(seconds / 3600)
+        local minutes = math.floor((seconds % 3600) / 60)
+        local remainder = seconds % 60
+        return ('%02d:%02d:%02d'):format(hours, minutes, remainder)
+    end
+
+    get_ore_window_timer_state = function()
+        local raw_time = get_vana_raw_time()
+        if raw_time == nil then
+            return false, nil
+        end
+
+        local day = math.floor(raw_time / 3456)
+        local elapsed = raw_time % 3456
+        local moon_index = ((day + 26) % 84) + 1
+        local in_window = moon_index >= 46 and moon_index <= 53
+
+        if in_window then
+            local seconds_until_end = ((54 - moon_index) * 3456) - elapsed
+            return true, math.max(0, seconds_until_end)
+        end
+
+        local days_until_start = 0
+        if moon_index < 46 then
+            days_until_start = 46 - moon_index
+        else
+            days_until_start = (84 - moon_index) + 46
+        end
+
+        local seconds_until_start = (days_until_start * 3456) - elapsed
+        return false, math.max(0, seconds_until_start)
     end
 
     local function calculate_dpm(dig_time_ms)
@@ -554,6 +645,7 @@ return function(deps)
         local moon, weather = get_cached_environment()
         local greens_total = get_cached_gysahl_greens()
         local dig_rank, rank_info = get_dig_rank_info(state.settings.dig_skill)
+        update_timer_display_cache()
         local dig_rate = 0.85
         local skill_modifier = 0.5 + (dig_rank / 20)
         local moon_dist = tonumber(moon.percent) or 0
@@ -600,6 +692,8 @@ return function(deps)
             acc_estimate = acc_estimate,
             reward_rows = reward_rows,
             ore_possible = ore_possible,
+            ore_window_timer_text = memory_cache.timer_display.ore_window_timer_text or '--:--:--',
+            ore_window_timer_color = memory_cache.timer_display.ore_window_timer_color or data.Colors.text_dim,
             est_remaining = math.floor(greens_total * (dig_rate * moon_modifier * skill_modifier)),
             fatigue_remaining = math.max(0, rank_info.daily_limit - state.settings.dig_items),
         }
@@ -650,15 +744,27 @@ return function(deps)
         end
 
         if dig_skill_up ~= nil then
+            local previous_skill = tonumber(state.settings.dig_skill) or 0
             local old_rank = select(1, get_dig_rank_info(state.settings.dig_skill))
             state.digging.dig_skillup = state.digging.dig_skillup + (tonumber(dig_skill_up) or 0)
+            local did_rankup = false
+            local did_levelup = false
             local parsed_skill = tonumber(dig_skill)
             if parsed_skill ~= nil then
                 state.settings.dig_skill = parsed_skill
+                did_levelup = math.floor(parsed_skill) > math.floor(previous_skill)
                 local new_rank = select(1, get_dig_rank_info(state.settings.dig_skill))
                 if new_rank > old_rank then
-                    play_rankup_sound()
+                    did_rankup = true
                 end
+            end
+
+            if did_rankup then
+                play_rankup_sound()
+            elseif did_levelup then
+                play_levelup_sound()
+            else
+                play_skillup_sound()
             end
         end
 

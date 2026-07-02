@@ -392,6 +392,7 @@ return function(deps)
             end
             add_row('Weather', metrics.weather, weather_color)
             if state.settings.show_ore then
+                add_row('Next Ore Window', metrics.ore_window_timer_text or '--:--:--', metrics.ore_window_timer_color or data.Colors.text_dim)
                 add_row('Ore Window', ore_text, ore_color)
             end
             if state.settings.show_last_item then
