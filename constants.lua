@@ -50,16 +50,42 @@ data.Weather = T{
     [16] = 'Light', [17] = 'Light x2', [18] = 'Dark', [19] = 'Dark x2',
 }
 
+data.ElementalOreZones = {
+    [2] = true,   -- Carpenters' Landing
+    [4] = true,   -- Bibiki Bay
+    [51] = true,  -- Wajaom Woodlands
+    [52] = true,  -- Bhaflau Thickets
+    [100] = true, -- West Ronfaure
+    [101] = true, -- East Ronfaure
+    [102] = true, -- La Theine Plateau
+    [103] = true, -- Valkurm Dunes
+    [104] = true, -- Jugner Forest
+    [105] = true, -- Batallia Downs
+    [106] = true, -- North Gustaberg
+    [107] = true, -- South Gustaberg
+    [108] = true, -- Konschtat Highlands
+    [109] = true, -- Pashhow Marshlands
+    [110] = true, -- Rolanberry Fields
+    [115] = true, -- West Sarutabaruta
+    [116] = true, -- East Sarutabaruta
+    [117] = true, -- Tahrongi Canyon
+    [118] = true, -- Buburimu Peninsula
+    [119] = true, -- Meriphataud Mountains
+    [120] = true, -- Sauromugue Champaign
+    [121] = true, -- The Sanctuary of Zi'Tah
+}
+
 data.Colors = {
-    window_bg = { 0.05, 0.05, 0.05, 0.98 },
-    panel_bg = { 0.09, 0.09, 0.08, 0.96 },
-    border = { 0.74, 0.62, 0.35, 1.0 },
-    title_bg = { 0.34, 0.23, 0.09, 1.0 },
-    title_bg_active = { 0.45, 0.30, 0.10, 1.0 },
-    gold = { 0.98, 0.88, 0.48, 1.0 },
-    gold_soft = { 0.92, 0.76, 0.42, 1.0 },
-    text = { 0.92, 0.92, 0.90, 1.0 },
-    text_dim = { 0.68, 0.68, 0.66, 1.0 },
+    -- Floos DarkGold palette: charcoal-brown panels with restrained gold trim.
+    window_bg = { 0.051, 0.051, 0.051, 0.95 },
+    panel_bg = { 0.098, 0.090, 0.075, 1.0 },
+    border = { 0.957, 0.855, 0.592, 0.85 },
+    title_bg = { 0.137, 0.125, 0.106, 1.0 },
+    title_bg_active = { 0.176, 0.161, 0.137, 1.0 },
+    gold = { 0.957, 0.855, 0.592, 1.0 },
+    gold_soft = { 0.765, 0.684, 0.474, 1.0 },
+    text = { 0.878, 0.855, 0.812, 1.0 },
+    text_dim = { 0.600, 0.580, 0.540, 1.0 },
     success = { 0.34, 0.82, 0.42, 1.0 },
     warn = { 0.90, 0.60, 0.20, 1.0 },
     danger = { 0.90, 0.30, 0.26, 1.0 },
@@ -91,109 +117,33 @@ data.WeatherColors = {
 }
 
 data.ZoneItems = {
-    ['batallia downs'] = {
-        'Bird Feather', 'Bone Chip', 'Black Chocobo Feather', 'Copper Ore',
-        'Flint Stone', 'Iron Ore', 'Pebble', 'Purple Rock', 'Red Jar', 'Reishi Mushroom',
-        'Bird Egg', 'Colored Egg', 'Hard-Boiled Egg', 'Soft-Boiled Egg', 'Sairui-Ran',
-    },
-    ['buburimu peninsula'] = {
-        'Bird Feather', 'Seashell', 'Giant Femur', 'Shell Bug', 'Shall Shell',
-        'Turtle Shell', 'Gold Beastcoin', 'Crawler Cocoon', 'Crab Shell', 'High-Quality Crab Shell',
-    },
-    ['bibiki bay'] = {
-        'Bird Feather', 'Coral Fragment', 'Giant Femur', 'Lugworm', 'Platinum Ore',
-        'Seashell', 'Shall Shell', 'Shell Bug', 'Tin Ore', 'Turtle Shell',
-    },
-    ["carpenter's landing"] = {
-        'Acorn', 'Arrowwood Log', 'Holly Log', 'King Truffle', 'Little Worm',
-        'Maple Log', 'Mistletoe', 'Oak Log', 'Scream Fungus', 'Willow Log',
-    },
-    ["carpenters' landing"] = {
-        'Acorn', 'Arrowwood Log', 'Holly Log', 'King Truffle', 'Little Worm',
-        'Maple Log', 'Mistletoe', 'Oak Log', 'Scream Fungus', 'Willow Log',
-    },
-    ['eastern altepa desert'] = {
-        'Bone Chip', 'Giant Femur', 'Pebble', 'Silver Ore', 'Mythril Ore',
-        "Philosopher's Stone", 'Platinum Ore', 'Wyvern Scales', 'Zinc Ore',
-    },
-    ['east ronfaure'] = {
-        'Acorn', 'Arrowwood Log', 'Little Worm', 'Ash Log', 'Chocobo Feather',
-        'Maple Log', 'Chestnut', 'Chestnut Log', 'King Truffle', 'Mistletoe', 'Fruit Seeds',
-    },
-    ['east sarutabaruta'] = {
-        'Lauan Log', 'Papaka Grass', 'Pebble', 'Ebony Log', 'Bird Feather',
-        'Insect Wing', 'Moko Grass', 'Yagudo Feather', 'Saruta Cotton', 'Green Rock',
-        'Rosewood Log', 'Herb Seeds',
-    },
-    ['jugner forest'] = {
-        'Acorn', 'Arrowwood Log', 'Holly Log', 'King Truffle', 'Little Worm',
-        'Maple Log', 'Mistletoe', 'Oak Log', 'Scream Fungus', 'Willow Log', 'Ebony Log',
-    },
-    ['konschtat highlands'] = {
-        'Bird Feather', 'Bone Chip', 'Elm Log', 'Fish Scales', 'Flint Stone',
-        'Lizard Molt', 'Mythril Beastcoin', 'Pebble', 'Phoenix Feather', 'Pugil Scales', 'Zinc Ore',
-    },
-    ['la theine plateau'] = {
-        'Little Worm', 'Arrowwood Log', 'Chocobo Feather', 'Dried Marjoram',
-        'Yew Log', 'Chestnut Log', 'Fresh Mugwort', 'Scream Fungus', 'Sobbing Fungus', 'King Truffle',
-    },
-    ['meriphataud mountains'] = {
-        'Adaman Ore', 'Black Chocobo Feather', 'Copper Ore', 'Giant Femur',
-        'Gold Beastcoin', 'Insect Wing', 'Lizard Molt', 'Pebble', 'Yellow Rock', 'Iron Ore',
-    },
-    ['north gustaberg'] = {
-        'Bone Chip', 'Little Worm', 'Pebble', 'Bird Feather', 'Fish Scales',
-        'Insect Wing', 'Lizard Molt', 'Pugil Scales', 'Mythril Beastcoin', 'Mythril Ore', 'Darksteel Ore',
-    },
-    ['pashhow marshlands'] = {
-        'Insect Wing', 'Pebble', 'Lizard Molt', 'Silver Ore', 'Willow Log',
-        'Puffball', 'Black Rock', 'Mythril Beastcoin', 'Petrified Log', 'Turtle Shell',
-    },
-    ['rolanberry fields'] = {
-        'Coral Fungus', 'Deathball', 'Flint Stone', 'Gold Beastcoin', 'Mythril Beastcoin',
-        'Orichalcum Ore', 'Pebble', 'Puffball', 'Sage', 'Red Jar', 'Darksteel Ore',
-    },
-    ['sauromugue champaign'] = {
-        'Black Chocobo Feather', 'Bone Chip', 'Flint Stone', 'Gold Beastcoin',
-        'Iron Ore', 'Lizard Molt', 'Pebble', 'Red Jar', 'Translucent Rock', 'Adaman Ore',
-    },
-    ['south gustaberg'] = {
-        'Pebble', 'Little Worm', 'Insect Wing', 'Bone Chip', 'Rock Salt',
-        'Lizard Molt', 'Mythril Beastcoin', 'Bird Feather', 'White Rock', 'Mythril Ore', 'Grain Seeds',
-    },
-    ['tahrongi canyon'] = {
-        'Bone Chip', 'Pebble', 'Insect Wing', 'Seashell', 'Tin Ore',
-        'Yagudo Feather', 'Giant Femur', 'Red Rock', 'Gold Ore', 'Platinum Ore',
-    },
-    ["the sanctuary of zi'tah"] = {
-        'Pebble', 'Bone Chip', 'Maple Log', 'Yew Log', 'Elm Log',
-        'Green Rock', 'Translucent Rock', 'Petrified Log', 'Tree Cuttings', 'Golem Shard',
-    },
-    ['valkurm dunes'] = {
-        'Bone Chip', 'Seashell', 'Giant Femur', 'Shell Bug', 'Blue Rock',
-        'Wyvern Scales', 'Copper Ore', 'Silver Ore', 'Gold Ore', 'Coral Fragment',
-    },
-    ['west ronfaure'] = {
-        'Acorn', 'Arrowwood Log', 'Little Worm', 'Ash Log', 'Chocobo Feather',
-        'Maple Log', 'Moko Grass', 'Chestnut', 'Chestnut Log', 'Mistletoe', 'Vegetable Seeds',
-    },
-    ['west sarutabaruta'] = {
-        'Lauan Log', 'Little Worm', 'Pebble', 'Gysahl Greens', 'Bird Feather',
-        'Insect Wing', 'Moko Grass', 'Yagudo Feather', 'Saruta Cotton', 'Rosewood Log',
-        'Ebony Log', 'Tree Cuttings',
-    },
-    ['western altepa desert'] = {
-        'Bone Chip', 'Giant Femur', 'Pebble', 'Iron Ore', 'Zinc Ore',
-        'Coral Fragment', 'Darksteel Ore', 'Fish Scales', 'Gold Ore', "Philosopher's Stone", 'Giant Bird Plume',
-    },
-    ['yhoator jungle'] = {
-        'Bone Chip', 'Lauan Log', 'Kazham Pineapple', 'Dryad Root', 'Ebony Log',
-        'Mahogany Log', 'Coral Fungus', 'Petrified Log', 'Reishi Mushroom',
-    },
-    ['yuhtunga jungle'] = {
-        'Bone Chip', 'Cinnamon', 'Rattan Lumber', 'Danceshroom', 'King Truffle',
-        'Petrified Log', 'Puffball', 'Ebony Log', 'Mushroom Locust', 'Rosewood Log',
-    },
+    ['batallia downs'] = { 'Pebble', 'Flint Stone', 'Bone Chip', 'Copper Ore', 'Iron Ore', 'Bird Feather', 'Red Jar', 'Purple Rock', 'Black Chocobo Feather', 'Reishi Mushroom' },
+    ['bhaflau thickets'] = { 'Dried Marjoram', 'Pebble', 'Pine Nuts', 'Colibri Feather', 'Petrified Log', 'Blue Rock', 'Lesser Chigoe', 'Spider Web', 'Orichalcum Ore' },
+    ['bibiki bay'] = { 'Seashell', 'Tin Ore', 'Lugworm', 'Giant Femur', 'Bird Feather', 'Shall Shell', 'Shell Bug', 'Turtle Shell' },
+    ['buburimu peninsula'] = { 'Tin Ore', 'Seashell', 'Lugworm', 'Giant Femur', 'Bird Feather', 'Shell Bug', 'Shall Shell', 'Platinum Ore', 'Turtle Shell' },
+    ["carpenter's landing"] = { 'Acorn', 'Little Worm', 'Arrowwood Log', 'Maple Log', 'Holly Log', 'Willow Log', 'Oak Log', 'Scream Fungus', 'Mistletoe', 'King Truffle' },
+    ["carpenters' landing"] = { 'Acorn', 'Little Worm', 'Arrowwood Log', 'Maple Log', 'Holly Log', 'Willow Log', 'Oak Log', 'Scream Fungus', 'Mistletoe', 'King Truffle' },
+    ['east ronfaure'] = { 'Acorn', 'Little Worm', 'Arrowwood Log', 'Chocobo Feather', 'Maple Log', 'Ronfaure Chestnut', 'Ash Log', 'Chestnut Log', 'Fruit Seeds', 'Mistletoe' },
+    ['east sarutabaruta'] = { 'Pebble', 'Lauan Log', 'Papaka Grass', 'Insect Wing', 'Yagudo Feather', 'Bird Feather', 'Rosewood Log', 'Green Rock', 'Herb Seeds', 'Saruta Cotton' },
+    ['eastern altepa desert'] = { 'Bone Chip', 'Pebble', 'Giant Femur', 'Zinc Ore', 'Silver Ore', 'Wyvern Scales', 'Mythril Ore', 'Platinum Ore', "Philosopher's Stone" },
+    ['jugner forest'] = { 'Acorn', 'Arrowwood Log', 'Little Worm', 'Maple Log', 'Willow Log', 'Holly Log', 'Oak Log', 'Scream Fungus', 'Mistletoe' },
+    ['konschtat highlands'] = { 'Pebble', 'Bone Chip', 'Flint Stone', 'Fish Scales', 'Zinc Ore', 'Elm Log', 'Bird Feather', 'Lizard Molt', 'Mythril Beastcoin', 'Phoenix Feather' },
+    ['la theine plateau'] = { 'Pebble', 'Arrowwood Log', 'Little Worm', 'Tin Ore', 'Chocobo Feather', 'Yew Log', 'Zinc Ore', 'Chestnut Log', 'Dried Marjoram', 'Mahogany Log' },
+    ['meriphataud mountains'] = { 'Pebble', 'Flint Stone', 'Insect Wing', 'Lizard Molt', 'Copper Ore', 'Giant Femur', 'Yellow Rock', 'Gold Beastcoin', 'Black Chocobo Feather', 'Adaman Ore' },
+    ['north gustaberg'] = { 'Pebble', 'Insect Wing', 'Little Worm', 'Bone Chip', 'Fish Scales', 'Lizard Molt', 'Flint Stone', 'Bird Feather', 'Mythril Beastcoin', 'Darksteel Ore' },
+    ['pashhow marshlands'] = { 'Insect Wing', 'Pebble', 'Lizard Molt', 'Willow Log', 'Silver Ore', 'Mythril Beastcoin', 'Black Rock', 'Puffball', 'Turtle Shell' },
+    ['rolanberry fields'] = { 'Pebble', 'Flint Stone', 'Little Worm', 'Insect Wing', 'Sage', 'Mythril Beastcoin', 'Red Jar', 'Coral Fungus', 'Gold Beastcoin', 'Orichalcum Ore' },
+    ['sauromugue champaign'] = { 'Pebble', 'Bone Chip', 'Flint Stone', 'Insect Wing', 'Lizard Molt', 'Iron Ore', 'Red Jar', 'Gold Beastcoin', 'Black Chocobo Feather' },
+    ['south gustaberg'] = { 'Pebble', 'Little Worm', 'Lizard Molt', 'Bone Chip', 'Insect Wing', 'Rock Salt', 'Bird Feather', 'Mythril Beastcoin', 'Grain Seeds' },
+    ['tahrongi canyon'] = { 'Pebble', 'Bone Chip', 'Seashell', 'Tin Ore', 'Insect Wing', 'Yagudo Feather', 'Giant Femur', 'Red Rock', 'Gold Ore' },
+    ["the sanctuary of zi'tah"] = { 'Pebble', 'Bone Chip', 'Moko Grass', 'Arrowwood Log', 'Yew Log', 'Elm Log', 'Translucent Rock', 'King Truffle' },
+    ['valkurm dunes'] = { 'Seashell', 'Bone Chip', 'Fish Scales', 'Lizard Molt', 'Lugworm', 'Giant Femur', 'Shall Shell', 'Shell Bug', 'Turtle Shell' },
+    ['wajaom woodlands'] = { 'Moko Grass', 'Pebble', 'Pine Nuts', 'Black Chocobo Feather', 'Blue Rock', 'Ebony Log', 'Pephredo Hive Chip', 'Spider Web', 'Adaman Ore' },
+    ['west ronfaure'] = { 'Little Worm', 'Acorn', 'Arrowwood Log', 'Moko Grass', 'Chocobo Feather', 'Maple Log', 'Ash Log', 'Ronfaure Chestnut', 'Chestnut Log', 'Vegetable Seeds', 'Mistletoe' },
+    ['west sarutabaruta'] = { 'Pebble', 'Little Worm', 'Lauan Log', 'Insect Wing', 'Moko Grass', 'Yagudo Feather', 'Bird Feather', 'Saruta Cotton', 'Tree Cuttings' },
+    ['western altepa desert'] = { 'Bone Chip', 'Pebble', 'Giant Femur', 'Zinc Ore', 'Iron Ore', 'Coral Fragment', 'Gold Ore', 'Darksteel Ore', "Philosopher's Stone" },
+    ['yhoator jungle'] = { 'Bone Chip', 'Lauan Log', 'Kazham Pineapple', 'Dryad Root', 'Mahogany Log', 'Ebony Log', 'Coral Fungus', 'Petrified Log', 'Reishi Mushroom' },
+    ['yuhtunga jungle'] = { 'Bone Chip', 'Rattan Lumber', 'Cinnamon', 'Danceshroom', 'Rosewood Log', 'Ebony Log', 'Petrified Log', 'Puffball', 'King Truffle' },
 }
 
 return data

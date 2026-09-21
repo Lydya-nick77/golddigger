@@ -7,7 +7,6 @@ return function(deps)
     local sound_player = deps.sound_player
     local rankup_sound_path = deps.rankup_sound_path
     local levelup_sound_path = deps.levelup_sound_path
-    local skillup_sound_path = deps.skillup_sound_path
     local ore_sound_path = deps.ore_sound_path
 
     local memory_cache = {
@@ -24,29 +23,57 @@ return function(deps)
             jst_day_key = nil,
         },
     }
+    local level_up_pending_attempt = nil
 
     local dig_rank_data = {
-        { name = 'Amateur',     area_delay = 60, dig_delay = 16, daily_limit = 100 },
-        { name = 'Recruit',     area_delay = 55, dig_delay = 11, daily_limit = 110 },
-        { name = 'Initiate',    area_delay = 50, dig_delay = 6,  daily_limit = 120 },
-        { name = 'Novice',      area_delay = 45, dig_delay = 1,  daily_limit = 130 },
-        { name = 'Apprentice',  area_delay = 40, dig_delay = 0,  daily_limit = 140 },
-        { name = 'Journeyman',  area_delay = 35, dig_delay = 0,  daily_limit = 150 },
-        { name = 'Craftsman',   area_delay = 30, dig_delay = 0,  daily_limit = 160 },
-        { name = 'Artisan',     area_delay = 25, dig_delay = 0,  daily_limit = 170 },
-        { name = 'Adept',       area_delay = 20, dig_delay = 0,  daily_limit = 180 },
-        { name = 'Veteran',     area_delay = 15, dig_delay = 0,  daily_limit = 190 },
-        { name = 'Expert',      area_delay = 10, dig_delay = 0,  daily_limit = 200 },
+        { name = 'Amateur',     area_delay = 60, dig_delay = 15, experience = 30 },
+        { name = 'Recruit',     area_delay = 55, dig_delay = 10, experience = 40 },
+        { name = 'Initiate',    area_delay = 50, dig_delay = 5,  experience = 45 },
+        { name = 'Novice',      area_delay = 45, dig_delay = 3,  experience = 50 },
+        { name = 'Apprentice',  area_delay = 40, dig_delay = 3,  experience = 55 },
+        { name = 'Journeyman',  area_delay = 35, dig_delay = 3,  experience = 60 },
+        { name = 'Craftsman',   area_delay = 30, dig_delay = 3,  experience = 65 },
+        { name = 'Artisan',     area_delay = 25, dig_delay = 3,  experience = 70 },
+        { name = 'Adept',       area_delay = 20, dig_delay = 3,  experience = 80 },
+        { name = 'Veteran',     area_delay = 15, dig_delay = 3,  experience = 85 },
+        { name = 'Expert',      area_delay = 10, dig_delay = 3,  experience = 100 },
+    }
+
+    local level_experience_required = {
+        [1] = 155, [2] = 220, [3] = 355, [4] = 445, [5] = 615, [6] = 740, [7] = 900, [8] = 1070, [9] = 1230, [10] = 1320,
+        [11] = 1470, [12] = 1705, [13] = 2015, [14] = 2245, [15] = 2495, [16] = 2755, [17] = 3020, [18] = 3315, [19] = 3610, [20] = 3915,
+        [21] = 4315, [22] = 4655, [23] = 5010, [24] = 5380, [25] = 5765, [26] = 6160, [27] = 6570, [28] = 6995, [29] = 7435, [30] = 7895,
+        [31] = 8485, [32] = 8975, [33] = 9480, [34] = 10000, [35] = 10545, [36] = 11085, [37] = 11660, [38] = 12240, [39] = 12680, [40] = 13115,
+        [41] = 13745, [42] = 14200, [43] = 14665, [44] = 15130, [45] = 15605, [46] = 16080, [47] = 16560, [48] = 17045, [49] = 17535, [50] = 18025,
+        [51] = 18730, [52] = 19240, [53] = 19755, [54] = 20275, [55] = 20790, [56] = 21325, [57] = 21850, [58] = 22390, [59] = 22925, [60] = 23470,
+        [61] = 24185, [62] = 24735, [63] = 25305, [64] = 25865, [65] = 26430, [66] = 27000, [67] = 27575, [68] = 28165, [69] = 28750, [70] = 29335,
+        [71] = 30085, [72] = 30685, [73] = 31290, [74] = 31900, [75] = 32510, [76] = 33125, [77] = 33745, [78] = 34365, [79] = 35000, [80] = 35630,
+        [81] = 36395, [82] = 37040, [83] = 37680, [84] = 38335, [85] = 38990, [86] = 39645, [87] = 40305, [88] = 40970, [89] = 41640, [90] = 44745,
+        [91] = 45565, [92] = 46280, [93] = 47005, [94] = 47735, [95] = 48465, [96] = 49210, [97] = 49950, [98] = 50695, [99] = 51440, [100] = 52200,
     }
 
     local function now_ms()
         return ashita.time.clock()['ms'] or 0
     end
 
-    local function get_dig_rank_info(dig_skill)
-        local rank_key = math.max(0, math.min(10, math.floor((tonumber(dig_skill) or 0) / 10)))
+    local function get_dig_rank_info(dig_level)
+        local rank_key = math.max(0, math.min(10, math.floor((math.max(1, tonumber(dig_level) or 1)) / 10)))
         local rank_info = dig_rank_data[rank_key + 1] or dig_rank_data[1]
         return rank_key, rank_info
+    end
+
+    local function add_dig_experience()
+        local level = math.max(1, math.min(100, tonumber(state.settings.dig_level) or 1))
+        local _, rank_info = get_dig_rank_info(level)
+        local experience = math.max(0, tonumber(state.settings.dig_experience) or 0) + rank_info.experience
+
+        while level < 100 and experience >= (level_experience_required[level] or math.huge) do
+            experience = experience - level_experience_required[level]
+            level = level + 1
+        end
+
+        state.settings.dig_level = level
+        state.settings.dig_experience = experience
     end
 
     local function play_rankup_sound()
@@ -77,23 +104,6 @@ return function(deps)
         end
 
         pcall(sound_player.Play, levelup_sound_path, volume)
-    end
-
-    local function play_skillup_sound()
-        if sound_player == nil or type(sound_player.Play) ~= 'function' then
-            return
-        end
-
-        if skillup_sound_path == nil or skillup_sound_path == '' then
-            return
-        end
-
-        local volume = tonumber(state.settings.rankup_sound_volume) or 50
-        if volume <= 0 then
-            return
-        end
-
-        pcall(sound_player.Play, skillup_sound_path, volume)
     end
 
     local function play_ore_sound()
@@ -260,53 +270,10 @@ return function(deps)
         return state.environment_cache.moon, state.environment_cache.weather
     end
 
-    local function is_player_mounted()
-        local player = AshitaCore:GetMemoryManager():GetPlayer()
-        if player == nil then
-            return false
-        end
-
-        if player.isZoning == true then
-            return false
-        end
-
-        local status_mounted = false
-        local get_player_entity = rawget(_G, 'GetPlayerEntity')
-        if type(get_player_entity) == 'function' then
-            local entity = get_player_entity()
-            if entity ~= nil then
-                status_mounted = tonumber(entity.StatusServer) == 4
-            end
-        end
-
-        local buffs = player:GetBuffs()
-        if buffs == nil then
-            return false
-        end
-
-        local buff_mounted = false
-
-        for _, buff_id in ipairs(buffs) do
-            if tonumber(buff_id) == 252 then -- Mounted
-                buff_mounted = true
-                break
-            end
-        end
-
-        return status_mounted or buff_mounted
-    end
-
-    local function queue_area_delay_timer_start()
-        state.area_delay.pending_start = true
-        state.area_delay.mounted_since_ms = 0
-    end
-
     local function reset_area_delay_timer_state()
         state.area_delay.active = false
         state.area_delay.end_ms = 0
         state.area_delay.ready = false
-        state.area_delay.pending_start = false
-        state.area_delay.mounted_since_ms = 0
     end
 
     local function reset_dig_delay_timer_state()
@@ -339,41 +306,6 @@ return function(deps)
 
         state.dig_delay.active = true
         state.dig_delay.end_ms = now_ms() + (delay_seconds * 1000)
-    end
-
-    local function update_area_delay_timer_state()
-        local clock_ms = now_ms()
-        local mounted = is_player_mounted()
-
-        if mounted and state.area_delay.was_mounted ~= true then
-            queue_area_delay_timer_start()
-            state.area_delay.mounted_since_ms = clock_ms
-        elseif (not mounted) and state.area_delay.was_mounted == true then
-            reset_area_delay_timer_state()
-            reset_dig_delay_timer_state()
-        end
-
-        state.area_delay.was_mounted = mounted
-
-        if state.area_delay.pending_start ~= true or state.area_delay.active == true then
-            return
-        end
-
-        if mounted then
-            if (tonumber(state.area_delay.mounted_since_ms) or 0) == 0 then
-                state.area_delay.mounted_since_ms = clock_ms
-            end
-
-            if clock_ms - (tonumber(state.area_delay.mounted_since_ms) or 0) >= 1500 then
-                local _, rank_info = get_dig_rank_info(state.settings.dig_skill)
-                start_area_delay_timer(rank_info.area_delay)
-                state.area_delay.pending_start = false
-                state.area_delay.mounted_since_ms = 0
-                return
-            end
-        else
-            state.area_delay.mounted_since_ms = 0
-        end
     end
 
     local function get_area_delay_display(default_area_delay)
@@ -527,10 +459,10 @@ return function(deps)
         local day = math.floor(raw_time / 3456)
         local elapsed = raw_time % 3456
         local moon_index = ((day + 26) % 84) + 1
-        local in_window = moon_index >= 46 and moon_index <= 53
+        local in_window = moon_index >= 46 and moon_index <= 58
 
         if in_window then
-            local seconds_until_end = ((54 - moon_index) * 3456) - elapsed
+            local seconds_until_end = ((59 - moon_index) * 3456) - elapsed
             return true, math.max(0, seconds_until_end)
         end
 
@@ -582,7 +514,6 @@ return function(deps)
         state.digging.dig_timing = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }
         state.digging.dig_index = 1
         state.digging.dig_per_minute = 0
-        state.digging.dig_skillup = 0.0
         state.digging.zone_empty[1] = false
         state.greens_cache.count = 0
         state.greens_cache.next_update_ms = 0
@@ -617,7 +548,7 @@ return function(deps)
     end
 
     local function handle_dig(dig_success)
-        local _, rank_info = get_dig_rank_info(state.settings.dig_skill)
+        local _, rank_info = get_dig_rank_info(state.settings.dig_level)
 
         if state.settings.auto_show_on_dig then
             state.visible[1] = true
@@ -629,6 +560,11 @@ return function(deps)
         if dig_success ~= nil and dig_success ~= '' then
             local item_name = dig_success
             state.settings.dig_items = state.settings.dig_items + 1
+            if level_up_pending_attempt == state.last_attempt then
+                level_up_pending_attempt = nil
+            else
+                add_dig_experience()
+            end
             state.digging.zone_empty[1] = false
             state.last_item = item_name
             state.settings.dig_rewards[item_name] = (tonumber(state.settings.dig_rewards[item_name]) or 0) + 1
@@ -644,7 +580,11 @@ return function(deps)
     local function compute_metrics()
         local moon, weather = get_cached_environment()
         local greens_total = get_cached_gysahl_greens()
-        local dig_rank, rank_info = get_dig_rank_info(state.settings.dig_skill)
+        local zone_id = 0
+        pcall(function()
+            zone_id = AshitaCore:GetMemoryManager():GetParty():GetMemberZone(0)
+        end)
+        local dig_rank, rank_info = get_dig_rank_info(state.settings.dig_level)
         update_timer_display_cache()
         local dig_rate = 0.85
         local skill_modifier = 0.5 + (dig_rank / 20)
@@ -674,20 +614,17 @@ return function(deps)
             return a.name < b.name
         end)
 
-        local ore_possible = false
-        if not state.digging.zone_empty[1]
+        local active_weather = weather ~= 'Unknown' and weather ~= 'Clear' and weather ~= 'Sunshine' and weather ~= 'Clouds'
+        local ore_possible = data.ElementalOreZones[tonumber(zone_id) or 0] == true
+            and active_weather
             and moon.phase == 'Waxing Crescent'
-            and moon.percent > 6
-            and moon.percent < 25
-        then
-            ore_possible = weather ~= 'Clear' and weather ~= 'Sunshine' and weather ~= 'Clouds'
-        end
 
         return {
             moon = moon,
             weather = weather,
             greens_total = greens_total,
             rank = rank_info,
+            level_experience_required = level_experience_required[state.settings.dig_level] or 0,
             accuracy = accuracy,
             acc_estimate = acc_estimate,
             reward_rows = reward_rows,
@@ -695,7 +632,7 @@ return function(deps)
             ore_window_timer_text = memory_cache.timer_display.ore_window_timer_text or '--:--:--',
             ore_window_timer_color = memory_cache.timer_display.ore_window_timer_color or data.Colors.text_dim,
             est_remaining = math.floor(greens_total * (dig_rate * moon_modifier * skill_modifier)),
-            fatigue_remaining = math.max(0, rank_info.daily_limit - state.settings.dig_items),
+            fatigue_remaining = math.max(0, 100 - state.settings.dig_items),
         }
     end
 
@@ -703,8 +640,9 @@ return function(deps)
         if tonumber(e.id) == 0x00B then
             state.digging.zone_empty[1] = false
             reset_area_delay_timer_state()
-            state.area_delay.was_mounted = false
             reset_dig_delay_timer_state()
+            local _, rank_info = get_dig_rank_info(state.settings.dig_level)
+            start_area_delay_timer(rank_info.area_delay)
         end
     end
 
@@ -725,51 +663,48 @@ return function(deps)
     end
 
     local function on_text_in(e)
-        local last_attempt_secs = (now_ms() - state.last_attempt) / 1000.0
-        if state.attempt_type ~= 'digging' or last_attempt_secs >= 60 then
-            return
-        end
-
-        local message = string.lower(e.message or '')
-        message = strip_colors(message)
-
-        local dig_success = normalize_reward_name(message:match('obtained:%s*(.-)%s*[%.!]$') or message:match('obtained:%s*(.+)$'))
-        local dig_unable = message:find('you dig and you dig', 1, true) ~= nil
-        local area_recently_dug = message:find('already dug in this area recently', 1, true) ~= nil
-        local dig_skill_up, dig_skill = message:match('skill increases by (.*) raising it to (.*)!')
-        local zone_empty = message:match('the zone has nothing left to dig up')
-
-        if zone_empty then
-            state.digging.zone_empty[1] = true
-        end
-
-        if dig_skill_up ~= nil then
-            local previous_skill = tonumber(state.settings.dig_skill) or 0
-            local old_rank = select(1, get_dig_rank_info(state.settings.dig_skill))
-            state.digging.dig_skillup = state.digging.dig_skillup + (tonumber(dig_skill_up) or 0)
+        local message = string.lower(strip_colors(e.message or ''))
+        local dig_level = tonumber(message:match('your wing skill improved to%s+(%d+)'))
+        if dig_level ~= nil then
+            local previous_level = tonumber(state.settings.dig_level) or 1
+            local old_rank = select(1, get_dig_rank_info(previous_level))
+            local did_levelup = dig_level > previous_level
             local did_rankup = false
-            local did_levelup = false
-            local parsed_skill = tonumber(dig_skill)
-            if parsed_skill ~= nil then
-                state.settings.dig_skill = parsed_skill
-                did_levelup = math.floor(parsed_skill) > math.floor(previous_skill)
-                local new_rank = select(1, get_dig_rank_info(state.settings.dig_skill))
-                if new_rank > old_rank then
-                    did_rankup = true
+            state.settings.dig_level = math.max(1, math.min(100, dig_level))
+            if state.settings.dig_level ~= previous_level then
+                state.settings.dig_experience = 0
+                if state.attempt_type == 'digging' then
+                    level_up_pending_attempt = state.last_attempt
                 end
+            end
+            if did_levelup then
+                local new_rank = select(1, get_dig_rank_info(state.settings.dig_level))
+                did_rankup = new_rank > old_rank
             end
 
             if did_rankup then
                 play_rankup_sound()
             elseif did_levelup then
                 play_levelup_sound()
-            else
-                play_skillup_sound()
             end
         end
 
+        local last_attempt_secs = (now_ms() - state.last_attempt) / 1000.0
+        if state.attempt_type ~= 'digging' or last_attempt_secs >= 60 then
+            return
+        end
+
+        local dig_success = normalize_reward_name(message:match('obtained:%s*(.-)%s*[%.!]$') or message:match('obtained:%s*(.+)$'))
+        local dig_unable = message:find('you dig and you dig', 1, true) ~= nil
+        local area_recently_dug = message:find('already dug in this area recently', 1, true) ~= nil
+        local zone_empty = message:match('the zone has nothing left to dig up')
+
+        if zone_empty then
+            state.digging.zone_empty[1] = true
+        end
+
         if area_recently_dug then
-            local _, rank_info = get_dig_rank_info(state.settings.dig_skill)
+            local _, rank_info = get_dig_rank_info(state.settings.dig_level)
             start_dig_delay_timer(rank_info.dig_delay)
             state.attempt_type = ''
             return
@@ -801,7 +736,6 @@ return function(deps)
     end
 
     return {
-        update_area_delay_timer_state = update_area_delay_timer_state,
         update_jp_reset_state = update_jp_reset_state,
         get_area_delay_display = get_area_delay_display,
         get_dig_delay_display = get_dig_delay_display,

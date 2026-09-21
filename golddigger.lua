@@ -1,6 +1,6 @@
 addon.name = 'golddigger'
 addon.author = 'Lydya'
-addon.version = '0.4.5'
+addon.version = '0.5.0'
 addon.desc = 'Chocobo digging addon based on Hgather.'
 addon.commands = { '/golddigger', '/gd' }
 
@@ -10,6 +10,7 @@ local imgui = require('imgui')
 local settings = require('settings')
 local struct = require('struct')
 local data = dofile(addon.path .. 'constants.lua')
+local fonts = dofile(addon.path .. 'fonts.lua')
 local create_ui = dofile(addon.path .. 'ui.lua')
 local create_core = dofile(addon.path .. 'core.lua')
 local sound_player = dofile(addon.path .. 'sound.lua')
@@ -24,8 +25,10 @@ local default_settings = T{
     show_rewards = true,
     show_zone_items = true,
     font_scale = 1.20,
+    font_family = 'Tahoma Bold (Default)',
     window_alpha = 0.95,
-    dig_skill = 0,
+    dig_level = 1,
+    dig_experience = 0,
     rankup_sound_volume = 50,
     reset_on_load = false,
     dig_rewards = T{},
@@ -44,9 +47,6 @@ local state = T{
         active = false,
         end_ms = 0,
         ready = false,
-        pending_start = false,
-        mounted_since_ms = 0,
-        was_mounted = false,
     },
     dig_delay = {
         active = false,
@@ -57,7 +57,6 @@ local state = T{
         dig_timing = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
         dig_index = 1,
         dig_per_minute = 0,
-        dig_skillup = 0.0,
         zone_empty = { false },
     },
     greens_cache = {
@@ -90,8 +89,10 @@ local function apply_settings(s)
     state.settings.show_rewards = state.settings.show_rewards ~= false
     state.settings.show_zone_items = state.settings.show_zone_items ~= false
     state.settings.font_scale = math.max(0.8, math.min(1.6, tonumber(state.settings.font_scale) or default_settings.font_scale))
+    state.settings.font_family = state.settings.font_family or default_settings.font_family
     state.settings.window_alpha = math.max(0.3, math.min(1.0, tonumber(state.settings.window_alpha) or default_settings.window_alpha))
-    state.settings.dig_skill = math.max(0, tonumber(state.settings.dig_skill) or default_settings.dig_skill)
+    state.settings.dig_level = math.max(1, math.min(100, math.floor(tonumber(state.settings.dig_level) or default_settings.dig_level)))
+    state.settings.dig_experience = math.max(0, math.floor(tonumber(state.settings.dig_experience) or default_settings.dig_experience))
     state.settings.rankup_sound_volume = math.max(0, math.min(100, tonumber(state.settings.rankup_sound_volume) or default_settings.rankup_sound_volume))
     state.settings.reset_on_load = state.settings.reset_on_load == true
     state.settings.dig_items = math.max(0, tonumber(state.settings.dig_items) or 0)
@@ -122,7 +123,6 @@ core = create_core({
     sound_player = sound_player,
     rankup_sound_path = addon.path .. 'assets\\ffxiv-levelup.wav',
     levelup_sound_path = addon.path .. 'assets\\level.wav',
-    skillup_sound_path = addon.path .. 'assets\\skillup.wav',
     ore_sound_path = addon.path .. 'assets\\money.wav',
 })
 
@@ -131,6 +131,7 @@ ui = create_ui({
     data = data,
     state = state,
     settings = settings,
+    fonts = fonts,
     default_settings = default_settings,
     print_message = print_message,
     clear_session = core.clear_session,
@@ -154,6 +155,7 @@ local function print_help(is_error)
 end
 
 ashita.events.register('load', 'golddigger_load', function()
+    fonts.prewarm()
     apply_settings(state.settings)
     if state.settings.reset_on_load then
         core.clear_session(false)
@@ -212,7 +214,6 @@ end)
 
 ashita.events.register('d3d_present', 'golddigger_present', function()
     sound_player.Tick()
-    core.update_area_delay_timer_state()
     core.update_jp_reset_state()
     ui.render_config_window()
     ui.render_main_window()

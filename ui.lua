@@ -3,6 +3,7 @@ return function(deps)
     local data = deps.data
     local state = deps.state
     local settings = deps.settings
+    local fonts = deps.fonts
     local default_settings = deps.default_settings
     local print_message = deps.print_message
     local clear_session = deps.clear_session
@@ -98,6 +99,16 @@ return function(deps)
         local scale = math.max(0.0, math.min(1.0, tonumber(alpha_scale) or 1.0))
         local a = math.max(0.0, math.min(1.0, (tonumber(src[4]) or 1.0) * scale))
         return { tonumber(src[1]) or 1.0, tonumber(src[2]) or 1.0, tonumber(src[3]) or 1.0, a }
+    end
+
+    local function push_control_theme(alpha)
+        imgui.PushStyleColor(ImGuiCol_Button, color_with_alpha(data.Colors.title_bg, alpha))
+        imgui.PushStyleColor(ImGuiCol_ButtonHovered, color_with_alpha(data.Colors.title_bg_active, alpha))
+        imgui.PushStyleColor(ImGuiCol_ButtonActive, color_with_alpha(data.Colors.gold_soft, alpha))
+        imgui.PushStyleColor(ImGuiCol_FrameBg, color_with_alpha(data.Colors.title_bg, alpha))
+        imgui.PushStyleColor(ImGuiCol_FrameBgHovered, color_with_alpha(data.Colors.title_bg_active, alpha))
+        imgui.PushStyleColor(ImGuiCol_FrameBgActive, color_with_alpha(data.Colors.title_bg_active, alpha))
+        imgui.PushStyleColor(ImGuiCol_CheckMark, color_with_alpha(data.Colors.gold, alpha))
     end
 
     local function render_card(id, title, width, height, rows, header_buttons_width, render_header_buttons)
@@ -258,13 +269,16 @@ return function(deps)
         imgui.PushStyleColor(ImGuiCol_Border, color_with_alpha(data.Colors.border, alpha))
         imgui.PushStyleColor(ImGuiCol_TitleBg, color_with_alpha(data.Colors.title_bg, alpha))
         imgui.PushStyleColor(ImGuiCol_TitleBgActive, color_with_alpha(data.Colors.title_bg_active, alpha))
+        push_control_theme(alpha)
         imgui.PushStyleVar(ImGuiStyleVar_WindowRounding, 6.0)
         imgui.PushStyleVar(ImGuiStyleVar_WindowBorderSize, 2.0)
 
         local began = imgui.Begin('Golddigger Config', state.config_visible, ImGuiWindowFlags_AlwaysAutoResize or 0)
         if began then
+            fonts.push(state.settings)
             apply_font_scale(state.settings.font_scale)
 
+            fonts.render_combo(state.settings)
             local font_scale = { tonumber(state.settings.font_scale) or default_settings.font_scale }
             if imgui.SliderFloat('Font Size', font_scale, 0.8, 1.6, '%.2f') then
                 state.settings.font_scale = math.max(0.8, math.min(1.6, font_scale[1]))
@@ -275,9 +289,14 @@ return function(deps)
                 state.settings.window_alpha = math.max(0.3, math.min(1.0, window_alpha[1]))
             end
 
-            local dig_skill = { tonumber(state.settings.dig_skill) or 0 }
-            if imgui.InputFloat('Digging Skill', dig_skill, 0.1, 0.5, '%.1f') then
-                state.settings.dig_skill = math.max(0, dig_skill[1])
+            local dig_level = { tonumber(state.settings.dig_level) or 1 }
+            if imgui.InputInt('Digging Level', dig_level) then
+                state.settings.dig_level = math.max(1, math.min(100, dig_level[1]))
+            end
+
+            local dig_experience = { tonumber(state.settings.dig_experience) or 0 }
+            if imgui.InputInt('Level Experience', dig_experience) then
+                state.settings.dig_experience = math.max(0, dig_experience[1])
             end
 
             local rankup_volume = { tonumber(state.settings.rankup_sound_volume) or default_settings.rankup_sound_volume }
@@ -336,11 +355,12 @@ return function(deps)
             end
 
             unapply_font_scale()
+            fonts.pop()
         end
         imgui.End()
 
         imgui.PopStyleVar(2)
-        imgui.PopStyleColor(4)
+        imgui.PopStyleColor(11)
     end
 
     local function render_main_window()
@@ -366,6 +386,7 @@ return function(deps)
 
         imgui.PushStyleColor(ImGuiCol_WindowBg, { 0.0, 0.0, 0.0, 0.0 })
         imgui.PushStyleColor(ImGuiCol_Border, { 0.0, 0.0, 0.0, 0.0 })
+        push_control_theme(tonumber(state.settings.window_alpha) or 1.0)
         imgui.PushStyleVar(ImGuiStyleVar_WindowRounding, 6.0)
         imgui.PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0)
         imgui.PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0)
@@ -375,6 +396,7 @@ return function(deps)
         local window_flags = bit.bor(ImGuiWindowFlags_NoCollapse or 0, ImGuiWindowFlags_AlwaysAutoResize or 0, ImGuiWindowFlags_NoTitleBar or 0)
         local began = imgui.Begin('Golddigger', state.visible, window_flags)
         if began then
+            fonts.push(state.settings)
             apply_font_scale(state.settings.font_scale)
 
             local session_rows = {}
@@ -382,9 +404,9 @@ return function(deps)
                 table.insert(session_rows, { label = label, value = value, color = color })
             end
 
-            add_row('Skill', ('%.1f (+%.1f) (%s)'):format(state.settings.dig_skill, state.digging.dig_skillup, metrics.rank.name), data.Colors.info)
+            add_row('Skill', ('Level %d - %s / %s XP (%s)'):format(state.settings.dig_level, format_int(state.settings.dig_experience), format_int(metrics.level_experience_required), metrics.rank.name), data.Colors.info)
             add_row('Attempts', ('%s (%.2f dpm)'):format(format_int(state.settings.dig_tries), state.digging.dig_per_minute), data.Colors.text)
-            add_row('Items Dug / Limit', ('%s/%s (%s to fatigue)'):format(format_int(state.settings.dig_items), format_int(metrics.rank.daily_limit), format_int(metrics.fatigue_remaining)), data.Colors.text)
+            add_row('Items Dug / Limit', ('%s/100 (%s to fatigue)'):format(format_int(state.settings.dig_items), format_int(metrics.fatigue_remaining)), data.Colors.text)
             add_row('Accuracy', ('%.1f%% act / %.1f%% est'):format(metrics.accuracy, metrics.acc_estimate), data.Colors.info)
             add_row('Greens Left', ('%s (%d est)'):format(format_int(metrics.greens_total), metrics.est_remaining), data.Colors.text)
             if state.settings.show_moon then
@@ -449,6 +471,7 @@ return function(deps)
             end
 
             unapply_font_scale()
+            fonts.pop()
         end
         imgui.End()
 
@@ -458,7 +481,7 @@ return function(deps)
         end
 
         imgui.PopStyleVar(5)
-        imgui.PopStyleColor(2)
+        imgui.PopStyleColor(9)
     end
 
     return {
