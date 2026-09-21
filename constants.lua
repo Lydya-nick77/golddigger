@@ -146,4 +146,45 @@ data.ZoneItems = {
     ['yuhtunga jungle'] = { 'Bone Chip', 'Rattan Lumber', 'Cinnamon', 'Danceshroom', 'Rosewood Log', 'Ebony Log', 'Petrified Log', 'Puffball', 'King Truffle' },
 }
 
+local zone_rank_codes = {
+    ['batallia downs'] = '0002445589',
+    ['bhaflau thickets'] = '00156789A',
+    ['bibiki bay'] = '00224559',
+    ['buburimu peninsula'] = '002245589',
+    ["carpenter's landing"] = '000222579A',
+    ["carpenters' landing"] = '000222579A',
+    ['east ronfaure'] = '0001222469',
+    ['east sarutabaruta'] = '0000344566',
+    ['eastern altepa desert'] = '001337789',
+    ['jugner forest'] = '000222579',
+    ['konschtat highlands'] = '000033445A',
+    ['la theine plateau'] = '0000133444',
+    ['meriphataud mountains'] = '000022578A',
+    ['north gustaberg'] = '0000000458',
+    ['pashhow marshlands'] = '000235559',
+    ['rolanberry fields'] = '000045567A',
+    ['sauromugue champaign'] = '000004578',
+    ['south gustaberg'] = '000004456',
+    ['tahrongi canyon'] = '000003457',
+    ["the sanctuary of zi'tah"] = '0000335A',
+    ['valkurm dunes'] = '000022559',
+    ['wajaom woodlands'] = '00115689A',
+    ['west ronfaure'] = '00001222469',
+    ['west sarutabaruta'] = '000003466',
+    ['western altepa desert'] = '001346789',
+    ['yhoator jungle'] = '000055678',
+    ['yuhtunga jungle'] = '00024579A',
+}
+
+data.ZoneItemRanks = {}
+for zone_name, items in pairs(data.ZoneItems) do
+    local codes = zone_rank_codes[zone_name] or ''
+    local ranks = {}
+    for index, item_name in ipairs(items) do
+        local code = codes:sub(index, index)
+        ranks[item_name:lower()] = code == 'A' and 10 or tonumber(code) or 0
+    end
+    data.ZoneItemRanks[zone_name] = ranks
+end
+
 return data

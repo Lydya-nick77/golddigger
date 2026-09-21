@@ -62,9 +62,10 @@ return function(deps)
         return rank_key, rank_info
     end
 
-    local function add_dig_experience()
+    local function add_dig_experience(item_rank)
         local level = math.max(1, math.min(100, tonumber(state.settings.dig_level) or 1))
-        local _, rank_info = get_dig_rank_info(level)
+        local rank_index = math.max(0, math.min(10, tonumber(item_rank) or 0))
+        local rank_info = dig_rank_data[rank_index + 1] or dig_rank_data[1]
         local experience = math.max(0, tonumber(state.settings.dig_experience) or 0) + rank_info.experience
 
         while level < 100 and experience >= (level_experience_required[level] or math.huge) do
@@ -169,6 +170,32 @@ return function(deps)
         end
 
         return cleaned:lower()
+    end
+
+    local function get_item_rank(item_name)
+        if is_elemental_ore(item_name) then
+            return 10
+        end
+
+        local zone_name = nil
+        pcall(function()
+            local zone_id = AshitaCore:GetMemoryManager():GetParty():GetMemberZone(0)
+            zone_name = AshitaCore:GetResourceManager():GetString('zones.names', zone_id)
+        end)
+
+        local rank_key = item_name
+        rank_key = rank_key:gsub('^chunk of ', '')
+        rank_key = rank_key:gsub('^handful of ', '')
+        rank_key = rank_key:gsub('^clump of ', '')
+        rank_key = rank_key:gsub('^ball of ', '')
+        rank_key = rank_key:gsub('^bag of ', '')
+        rank_key = rank_key:gsub('^pinch of ', '')
+        rank_key = rank_key:gsub('^piece of ', '')
+        rank_key = rank_key:gsub('^sprig of ', '')
+        rank_key = rank_key:gsub('^stick of ', '')
+
+        local zone_ranks = type(zone_name) == 'string' and data.ZoneItemRanks[zone_name:lower()] or nil
+        return zone_ranks and zone_ranks[rank_key] or 0
     end
 
     local function get_vana_raw_time()
@@ -563,7 +590,7 @@ return function(deps)
             if level_up_pending_attempt == state.last_attempt then
                 level_up_pending_attempt = nil
             else
-                add_dig_experience()
+                add_dig_experience(get_item_rank(item_name))
             end
             state.digging.zone_empty[1] = false
             state.last_item = item_name
