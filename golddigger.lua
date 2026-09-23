@@ -3,6 +3,7 @@ addon.author = 'Lydya'
 addon.version = '0.5.0'
 addon.desc = 'Chocobo digging addon based on Hgather.'
 addon.commands = { '/golddigger', '/gd' }
+addon.link      = 'https://github.com/Lydya-nick77/golddigger';
 
 require('common')
 local chat = require('chat')
